@@ -3,301 +3,452 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SyncSpace — Multiplayer in 10 Lines</title>
-  <meta name="description" content="SyncSpace is an ultra-lightweight real-time multiplayer coordination library for shared state, live cursors, and online presence.">
-  
-  <!-- Modern Google Fonts -->
+  <title>Synapse — Real-Time Collaborative Workspace</title>
+  <meta name="description" content="Synapse is a real-time collaborative workspace with shared state, live notepad history, counter transactions, and live cursors.">
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --bg-base: #0a0e17;
-      --bg-card: rgba(18, 26, 43, 0.75);
-      --bg-card-hover: rgba(24, 34, 56, 0.85);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-color-focus: rgba(99, 102, 241, 0.5);
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.35);
-      --ok: #10b981;
-      --ok-glow: rgba(16, 185, 129, 0.3);
-      --warn: #f59e0b;
-      --warn-glow: rgba(245, 158, 11, 0.3);
-      --bad: #ef4444;
-      --bad-glow: rgba(239, 68, 68, 0.3);
-      --room-accent: #6366f1;
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --border-focus: #4f46e5;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #94a3b8;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-subtle: #eef2ff;
+      --success: #059669;
+      --success-subtle: #ecfdf5;
+      --warning: #d97706;
+      --warning-subtle: #fffbeb;
+      --danger: #dc2626;
+      --danger-subtle: #fef2f2;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg-base);
-      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-canvas);
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--text-primary);
       min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
-      background-image: 
-        radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-        radial-gradient(circle at 85% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 45%);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Ambient room glow */
-    .ambient-glow {
-      position: fixed;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 400px;
-      background: radial-gradient(circle, var(--room-accent) 0%, transparent 70%);
-      opacity: 0.18;
-      pointer-events: none;
-      z-index: 0;
-      transition: background 0.6s ease, opacity 0.4s ease;
-      filter: blur(80px);
-    }
-
-    /* Header Navigation */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      background: rgba(10, 14, 23, 0.8);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border-color);
-      padding: 12px 24px;
-    }
-
-    .header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
+    button, input, textarea {
+      font-family: inherit;
       color: inherit;
     }
 
-    .brand-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
-      font-size: 18px;
+    :focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
     }
 
-    .brand-text h1 {
-      font-size: 1.25rem;
+    /* =========================================================================
+       1. PATTERNED ROOM ENTRY SCREEN
+       ========================================================================= */
+    #entry-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background-color: #f1f5f9;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 35%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 35%),
+        repeating-linear-gradient(45deg, rgba(203, 213, 225, 0.25) 0, rgba(203, 213, 225, 0.25) 1px, transparent 1px, transparent 16px);
+      overflow-y: auto;
+    }
+
+    body.in-room #entry-screen {
+      display: none;
+    }
+
+    .entry-card {
+      width: min(100%, 460px);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: var(--radius-xl);
+      padding: 36px 32px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      animation: entryFadeUp 0.35s ease-out;
+    }
+
+    @keyframes entryFadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .brand-logo-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      display: grid;
+      place-items: center;
+      color: #fff;
       font-weight: 800;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
     }
 
-    .brand-badge {
-      font-size: 0.68rem;
-      font-weight: 600;
-      background: rgba(99, 102, 241, 0.18);
-      color: #818cf8;
-      border: 1px solid rgba(99, 102, 241, 0.3);
+    .brand-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .brand-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: var(--primary-subtle);
+      color: var(--primary);
       padding: 2px 8px;
       border-radius: 999px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
-    .controls-deck {
+    .entry-headline {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.25;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .entry-subhead {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .input-field {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      transition: all 0.15s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .room-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon-subtle {
+      height: 46px;
+      padding: 0 14px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-icon-subtle:hover {
+      background: #e2e8f0;
+      color: var(--text-primary);
+    }
+
+    .btn-enter-room {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+      transition: all 0.15s ease;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-enter-room:hover {
+      background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .entry-error {
+      min-height: 20px;
+      font-size: 0.8rem;
+      color: var(--danger);
+      margin-top: 6px;
+    }
+
+    /* =========================================================================
+       2. TOP APPLICATION NAVBAR
+       ========================================================================= */
+    header.workspace-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header-container {
+      max-width: 1380px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .header-brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .header-brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .room-badge-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+    }
+
+    .room-code-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .header-right {
       display: flex;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
     }
 
-    .room-pill {
+    .pill-btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: var(--text-main);
+      gap: 6px;
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
 
-    .room-pill span {
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      text-transform: uppercase;
+    .pill-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
     }
 
     .user-pill {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
       padding: 4px 10px;
-      border-radius: 8px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 600;
     }
 
-    .user-color-dot {
-      width: 10px;
-      height: 10px;
+    .user-avatar-circle {
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
-      background: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .user-input {
-      background: transparent;
-      border: none;
-      color: var(--text-main);
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 600;
-      width: 100px;
-      outline: none;
-    }
-
-    .user-input:focus {
-      border-bottom: 1px solid var(--accent);
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-      font-size: 0.84rem;
-      font-weight: 600;
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-main);
-      cursor: pointer;
-      transition: all 0.18s ease;
-      white-space: nowrap;
-    }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: translateY(-1px);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-      border-color: #6366f1;
+      background: var(--primary);
       color: #fff;
-      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      font-weight: 700;
     }
 
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-    }
-
-    .btn-outline-danger {
-      border-color: rgba(239, 68, 68, 0.3);
-      color: #f87171;
-    }
-    .btn-outline-danger:hover {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: #ef4444;
-    }
-
-    /* Status indicator */
-    .status-badge {
+    .status-indicator-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 4px 10px;
       border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
     }
 
-    .status-dot {
+    .pulse-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--warn);
-      box-shadow: 0 0 10px var(--warn-glow);
-      transition: background 0.3s ease;
+      background: var(--warning);
     }
 
-    .status-dot.open {
-      background: var(--ok);
-      box-shadow: 0 0 12px var(--ok-glow);
-      animation: pulse-dot 2s infinite ease-in-out;
+    .pulse-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
     }
 
-    .status-dot.reconnecting, .status-dot.closed {
-      background: var(--bad);
-      box-shadow: 0 0 12px var(--bad-glow);
+    .pulse-dot.reconnecting, .pulse-dot.closed {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
     }
 
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(1.15); }
+    .db-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-tertiary);
     }
 
-    /* Main Container */
-    main {
-      position: relative;
-      z-index: 10;
-      max-width: 1280px;
+    .db-status-pill.pg {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    /* =========================================================================
+       3. WORKSPACE MAIN GRID
+       ========================================================================= */
+    main.workspace-main {
+      max-width: 1380px;
       margin: 0 auto;
-      padding: 24px 20px 48px;
+      padding: 24px;
       display: grid;
-      gap: 20px;
-      grid-template-columns: 2.2fr 1fr;
+      grid-template-columns: 2.1fr 1fr;
+      gap: 24px;
     }
 
-    @media (max-width: 960px) {
-      main { grid-template-columns: 1fr; }
+    @media (max-width: 1024px) {
+      main.workspace-main {
+        grid-template-columns: 1fr;
+      }
     }
 
-    /* Cards */
     .card {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 22px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      transition: box-shadow 0.2s ease;
     }
 
     .card:hover {
-      border-color: rgba(255, 255, 255, 0.14);
+      box-shadow: var(--shadow-md);
     }
 
     .card-header {
@@ -305,1025 +456,1353 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
-    .card-title {
-      font-size: 0.95rem;
-      font-weight: 700;
+    .card-title-group {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: var(--text-main);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
-    .card-title svg {
-      width: 18px;
-      height: 18px;
-      color: var(--accent);
+    .card-title {
+      font-size: 1rem;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
     }
 
     /* Collaborative Notepad */
-    .notepad-wrapper {
+    .notepad-container {
       position: relative;
-      width: 100%;
     }
 
-    textarea.notepad {
+    textarea.notepad-area {
       width: 100%;
-      min-height: 220px;
-      background: rgba(10, 14, 23, 0.65);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
+      min-height: 260px;
       padding: 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.92rem;
       line-height: 1.6;
-      color: var(--text-main);
+      background: #fafafa;
+      color: var(--text-primary);
       resize: vertical;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
 
-    textarea.notepad:focus {
-      border-color: var(--border-color-focus);
-      box-shadow: 0 0 0 2px var(--accent-glow);
+    textarea.notepad-area:focus {
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
     }
 
     .notepad-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-top: 8px;
+      margin-top: 10px;
       font-size: 0.78rem;
-      color: var(--text-dim);
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-    .typing-badge {
+    .typing-status-pill {
+      color: var(--primary);
+      font-weight: 600;
+      min-height: 16px;
+    }
+
+    .auto-save-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      color: var(--accent);
-      font-weight: 500;
-      min-height: 18px;
+      gap: 4px;
+      color: var(--success);
+      font-weight: 600;
     }
 
-    /* Shared Widget Deck */
-    .widgets-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-top: 20px;
-    }
-
-    @media (max-width: 680px) {
-      .widgets-grid { grid-template-columns: 1fr; }
-    }
-
-    .widget-box {
-      background: rgba(10, 14, 23, 0.45);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px;
+    /* Counter Component */
+    .counter-hero {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
     }
 
-    .widget-box h3 {
+    .counter-value-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+
+    .counter-buttons-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn-counter {
+      height: 42px;
+      padding: 0 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-counter-primary {
+      background: var(--primary);
+      border: 1px solid var(--primary);
+      color: #fff;
+    }
+    .btn-counter-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-counter-subtle {
+      background: #ffffff;
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+    .btn-counter-subtle:hover {
+      background: var(--bg-subtle);
+    }
+
+    /* Counter Action History Feed */
+    .history-feed-title {
       font-size: 0.8rem;
+      font-weight: 750;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--text-muted);
-    }
-
-    /* Counter Display */
-    .counter-display {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 3rem;
-      font-weight: 800;
-      text-align: center;
-      padding: 12px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      color: #fff;
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-      transition: transform 0.12s ease;
-    }
-
-    .counter-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-    }
-
-    /* Color Swatches */
-    .swatches-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .swatch-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-
-    .swatch-btn:hover {
-      transform: scale(1.12);
-    }
-
-    .swatch-btn.active {
-      border-color: #fff;
-      box-shadow: 0 0 14px rgba(255, 255, 255, 0.4);
-    }
-
-    /* Emoji Burst Pad */
-    .reactions-row {
-      display: flex;
-      gap: 8px;
-      justify-content: space-around;
-      background: rgba(255, 255, 255, 0.02);
-      padding: 8px;
-      border-radius: 10px;
-    }
-
-    .react-btn {
-      font-size: 1.4rem;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 8px;
-      transition: transform 0.12s ease;
-    }
-
-    .react-btn:hover {
-      transform: scale(1.3);
-    }
-    .react-btn:active {
-      transform: scale(0.9);
-    }
-
-    /* Shared Idea Cards / Tasks */
-    .tasks-deck {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 190px;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-
-    .task-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 0.86rem;
-      gap: 8px;
-    }
-
-    .task-item.completed span {
-      text-decoration: line-through;
-      color: var(--text-dim);
-    }
-
-    .task-toggle {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--ok);
-      cursor: pointer;
-    }
-
-    .task-del {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 0 4px;
-    }
-    .task-del:hover { color: var(--bad); }
-
-    .add-task-form {
-      display: flex;
-      gap: 8px;
-      margin-top: 6px;
-    }
-
-    .add-task-input {
-      flex: 1;
-      background: rgba(10, 14, 23, 0.6);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 6px 10px;
-      color: #fff;
-      font-size: 0.84rem;
-      outline: none;
-    }
-    .add-task-input:focus { border-color: var(--accent); }
-
-    /* Aside: Online Presence */
-    .presence-card {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .presence-header {
+      color: var(--text-secondary);
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .presence-counter {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--ok);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.76rem;
-      font-weight: 700;
-    }
-
-    .peers-list {
+    .counter-history-list {
       list-style: none;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
-    .peer-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 10px 14px;
-      animation: fadeIn 0.3s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .peer-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 700;
-      font-size: 0.88rem;
-      flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    .peer-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .peer-name {
-      font-weight: 600;
-      font-size: 0.88rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .peer-badge-you {
-      font-size: 0.65rem;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: rgba(99, 102, 241, 0.25);
-      color: #818cf8;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .peer-status {
-      font-size: 0.72rem;
-      color: var(--ok);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* Integration Code Card */
-    .code-card {
-      margin-top: 10px;
-      background: rgba(10, 14, 23, 0.7);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      overflow: hidden;
-    }
-
-    .code-card-header {
+    .counter-history-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px;
-      background: rgba(255, 255, 255, 0.03);
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.78rem;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.82rem;
+    }
+
+    .action-badge {
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    .action-badge.inc { background: var(--success-subtle); color: var(--success); }
+    .action-badge.dec { background: var(--danger-subtle); color: var(--danger); }
+    .action-badge.reset { background: var(--warning-subtle); color: var(--warning); }
+
+    /* =========================================================================
+       4. RIGHT SIDEBAR COMPONENTS
+       ========================================================================= */
+    /* Presence List */
+    .presence-roster {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .presence-user-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .presence-color-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .presence-user-name {
+      font-size: 0.86rem;
       font-weight: 600;
-      color: var(--text-muted);
+      color: var(--text-primary);
+      flex: 1;
     }
 
-    pre.code-block {
-      padding: 14px;
+    .you-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--primary-subtle);
+      color: var(--primary);
+      text-transform: uppercase;
+    }
+
+    /* Emoji Reactions & Quick Shouts */
+    .reaction-bar {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 8px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .reaction-trigger-btn {
+      font-size: 1.3rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      transition: transform 0.12s ease;
+    }
+    .reaction-trigger-btn:hover {
+      transform: scale(1.3);
+    }
+
+    .shout-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      padding-right: 4px;
+    }
+
+    .shout-message-bubble {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.82rem;
+    }
+
+    .shout-sender {
+      font-weight: 700;
+      color: var(--primary);
+      margin-right: 6px;
+    }
+
+    .shout-form {
+      display: flex;
+      gap: 8px;
+    }
+
+    .shout-input {
+      flex: 1;
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+    }
+
+    /* Tasks & Ideas Checklist */
+    .tasks-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .task-item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+    }
+
+    .task-item-row.completed span {
+      text-decoration: line-through;
+      color: var(--text-tertiary);
+    }
+
+    .task-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .task-delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+    }
+    .task-delete-btn:hover { color: var(--danger); }
+
+    /* =========================================================================
+       5. NOTEPAD VERSION HISTORY DRAWER / MODAL
+       ========================================================================= */
+    #history-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: none;
+      place-items: center;
+      padding: 24px;
+    }
+
+    #history-modal.open {
+      display: grid;
+    }
+
+    .history-card {
+      width: min(100%, 720px);
+      max-height: 85vh;
+      background: #ffffff;
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .history-card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .history-card-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 680px) {
+      .history-card-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .version-items-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .version-item-card {
+      padding: 10px 14px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      background: #ffffff;
+      transition: all 0.15s ease;
+    }
+
+    .version-item-card:hover {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+    }
+
+    .version-item-card.selected {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+
+    .version-preview-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .version-preview-text {
+      flex: 1;
+      min-height: 200px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.78rem;
-      line-height: 1.6;
-      color: #cbd5e1;
-      overflow-x: auto;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      overflow-y: auto;
     }
 
-    pre.code-block .k { color: #f43f5e; } /* keyword */
-    pre.code-block .s { color: #34d399; } /* string */
-    pre.code-block .f { color: #60a5fa; } /* function */
-    pre.code-block .c { color: #64748b; } /* comment */
-
-    /* Live Remote Cursors */
-    .cursor-peer {
+    /* =========================================================================
+       6. LIVE CURSORS & ANIMATIONS
+       ========================================================================= */
+    .synapse-cursor {
       position: fixed;
       pointer-events: none;
-      z-index: 9999;
+      z-index: 8000;
       top: 0;
       left: 0;
       will-change: transform;
       transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1);
     }
 
-    .cursor-peer svg {
+    .synapse-cursor svg {
       width: 20px;
       height: 20px;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
     }
 
-    .cursor-peer-label {
+    .synapse-cursor-badge {
       position: absolute;
-      top: 16px;
-      left: 14px;
+      top: 14px;
+      left: 12px;
       padding: 2px 8px;
       border-radius: 6px;
       font-size: 11px;
-      font-weight: 600;
-      color: #fff;
+      font-weight: 700;
+      color: #ffffff;
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
-    /* Floating Emoji Reactions */
-    .floating-reaction {
+    .floating-emoji {
       position: fixed;
       pointer-events: none;
-      z-index: 999;
+      z-index: 8500;
       font-size: 2.2rem;
-      animation: floatUp 2.4s ease-out forwards;
+      animation: floatBurst 2.2s ease-out forwards;
     }
 
-    @keyframes floatUp {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(0.6);
-      }
-      50% {
-        transform: translate(calc((var(--drift, 0) * 80px)), -120px) scale(1.2);
-      }
-      100% {
-        opacity: 0;
-        transform: translate(calc((var(--drift, 0) * 160px)), -260px) scale(0.8);
-      }
+    @keyframes floatBurst {
+      0% { opacity: 1; transform: translate(0, 0) scale(0.6); }
+      50% { transform: translate(calc(var(--drift, 0) * 80px), -140px) scale(1.2); }
+      100% { opacity: 0; transform: translate(calc(var(--drift, 0) * 160px), -280px) scale(0.8); }
     }
 
-    /* Toast Notification Center */
-    #toast-container {
+    #toast-deck {
       position: fixed;
       bottom: 24px;
       right: 24px;
-      z-index: 10000;
+      z-index: 11000;
       display: flex;
       flex-direction: column;
       gap: 8px;
       pointer-events: none;
     }
 
-    .toast-msg {
-      background: rgba(18, 26, 43, 0.95);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
+    .toast-pill {
+      background: #0f172a;
+      color: #ffffff;
       padding: 10px 18px;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       font-size: 0.85rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(10px);
+      font-weight: 600;
+      box-shadow: var(--shadow-lg);
       display: flex;
       align-items: center;
       gap: 8px;
-      animation: toastIn 0.25s ease-out;
+      animation: toastSlide 0.2s ease-out;
       pointer-events: auto;
     }
 
-    .toast-msg.error {
-      border-color: rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-    }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(12px) scale(0.95); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+    @keyframes toastSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
 
-  <!-- Ambient background glow reacting to room color -->
-  <div class="ambient-glow" id="ambientGlow"></div>
+  <!-- =========================================================================
+       ROOM ENTRANCE SCREEN (Displayed before entering a room)
+       ========================================================================= -->
+  <div id="entry-screen">
+    <div class="entry-card">
+      <div class="brand-badge-row">
+        <div class="brand-logo-icon">⚡</div>
+        <div class="brand-title">Synapse</div>
+        <span class="brand-pill">Multiplayer Workspace</span>
+      </div>
 
-  <!-- Header -->
-  <header>
-    <div class="header-inner">
-      <a href="#" class="brand">
-        <div class="brand-icon">⚡</div>
-        <div class="brand-text">
-          <h1>SyncSpace <span class="brand-badge">Multiplayer in 10 lines</span></h1>
-        </div>
-      </a>
+      <h1 class="entry-headline">Welcome to Synapse</h1>
+      <p class="entry-subhead">A real-time collaborative workspace for teams that build together. Choose your display name and room to begin.</p>
 
-      <div class="controls-deck">
-        <!-- Room pill -->
-        <div class="room-pill" title="Current collaboration room">
-          <span>Room:</span>
-          <strong id="roomDisplay">...</strong>
-        </div>
-
-        <!-- Name badge -->
-        <div class="user-pill" title="Click to rename yourself">
-          <div class="user-color-dot" id="myColorDot"></div>
-          <input type="text" id="nameInput" class="user-input" maxlength="24" title="Your display name">
+      <form id="entry-form">
+        <div class="form-group">
+          <label class="form-label" for="entry-name">Your Display Name</label>
+          <input type="text" id="entry-name" class="input-field" maxlength="28" required placeholder="e.g. Asha Sharma">
         </div>
 
-        <!-- Action buttons -->
-        <button id="copyBtn" class="btn" title="Copy shareable room link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          <span id="copyBtnText">Copy Link</span>
+        <div class="form-group">
+          <label class="form-label" for="entry-room">Room Code</label>
+          <div class="room-input-row">
+            <input type="text" id="entry-room" class="input-field" maxlength="32" required placeholder="e.g. project-kickoff">
+            <button type="button" id="btn-generate-code" class="btn-icon-subtle" title="Generate new random room code">🎲 New Code</button>
+          </div>
+        </div>
+
+        <div class="entry-error" id="entry-error" role="alert"></div>
+
+        <button type="submit" id="btn-enter" class="btn-enter-room">
+          <span>Enter room</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
+      </form>
+    </div>
+  </div>
 
-        <button id="newRoomBtn" class="btn" title="Create a brand new room">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          New Room
+  <!-- =========================================================================
+       WORKSPACE HEADER NAVBAR
+       ========================================================================= -->
+  <header class="workspace-header">
+    <div class="header-container">
+      <div class="header-left">
+        <a href="#" class="header-brand" id="nav-brand-home">
+          <div class="header-brand-icon">⚡</div>
+          <span class="header-brand-title">Synapse</span>
+        </a>
+
+        <div class="room-badge-group">
+          <span>Room:</span>
+          <span class="room-code-tag" id="nav-room-code">...</span>
+          <button class="pill-btn" id="btn-copy-room" style="height:26px; padding:0 8px; font-size:0.75rem;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span id="copy-btn-label">Copy link</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- User identity pill -->
+        <div class="user-pill" title="Click to edit display name">
+          <div class="user-avatar-circle" id="nav-user-avatar">A</div>
+          <span id="nav-user-name">Guest</span>
+          <button class="pill-btn" id="btn-rename" style="height:24px; padding:0 6px; font-size:0.7rem; border:none; background:transparent;">Edit</button>
+        </div>
+
+        <!-- Connection status -->
+        <div class="status-indicator-pill">
+          <span class="pulse-dot" id="nav-status-dot"></span>
+          <span id="nav-status-text">Connecting...</span>
+        </div>
+
+        <!-- Database persistence badge -->
+        <div class="db-status-pill" id="nav-db-badge" title="Data persistence state">
+          <span>💾 Storage Ready</span>
+        </div>
+
+        <!-- Switch room button -->
+        <button class="pill-btn" id="btn-switch-room" title="Switch or create another room">
+          <span>Switch room</span>
         </button>
 
         <!-- Test Disconnect button -->
-        <button id="simDisconnectBtn" class="btn btn-outline-danger" title="Test automatic reconnection and state restore">
-          ⚡ Drop &amp; Reconnect
+        <button class="pill-btn" id="btn-test-disconnect" style="color:var(--danger); border-color:rgba(220,38,38,0.25);" title="Simulate a momentary network drop to test auto-reconnect">
+          <span>⚡ Drop &amp; Reconnect</span>
         </button>
-
-        <!-- Connection status -->
-        <div class="status-badge">
-          <span class="status-dot" id="statusDot"></span>
-          <span id="statusLabel">Connecting...</span>
-        </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Layout -->
-  <main>
-    <!-- Left Column: Collaborative Workspace -->
-    <section style="display: flex; flex-direction: column; gap: 20px;">
-      
-      <!-- Collaborative Notepad Card -->
-      <div class="card">
+  <!-- =========================================================================
+       WORKSPACE MAIN COLLABORATION GRID
+       ========================================================================= -->
+  <main class="workspace-main">
+    
+    <!-- LEFT MAIN STAGE -->
+    <section>
+      <!-- CARD 1: LIVE COLLABORATIVE NOTEPAD -->
+      <article class="card">
         <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            Collaborative Live Notepad
+          <div class="card-title-group">
+            <h2 class="card-title">Live Collaborative Notepad</h2>
+            <span class="typing-status-pill" id="notepad-typing-indicator"></span>
           </div>
-          <span class="typing-badge" id="typingStatus"></span>
+
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="pill-btn" id="btn-open-history" title="Inspect past saved versions">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>Version History (<strong id="history-count">0</strong>)</span>
+            </button>
+          </div>
         </div>
 
-        <div class="notepad-wrapper">
-          <textarea id="notepad" class="notepad" placeholder="Type here in real-time... Open this URL in multiple browser tabs or send to your hackathon teammates! Every keystroke syncs live."></textarea>
+        <div class="notepad-container">
+          <textarea id="live-notepad" class="notepad-area" placeholder="Type here in real time... Every keystroke syncs with room participants instantly. A new version is saved after 2 seconds of inactivity."></textarea>
         </div>
 
         <div class="notepad-footer">
-          <span id="notepadStats">0 words · 0 characters</span>
-          <span>⚡ Synced automatically across all room peers</span>
+          <span id="notepad-stats">0 words · 0 characters</span>
+          <span class="auto-save-pill" id="notepad-save-status">✓ Auto-saved 2s after edits</span>
         </div>
-      </div>
+      </article>
 
-      <!-- Shared Widgets Grid -->
-      <div class="widgets-grid">
-        
-        <!-- Shared Counter & Ambient Color -->
-        <div class="widget-box">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Shared Room Counter</h3>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">Live Sync</span>
-          </div>
-
-          <div class="counter-display" id="counterBox">0</div>
-
-          <div class="counter-actions">
-            <button class="btn btn-primary" id="incBtn" style="flex: 1;">+1 for Everyone</button>
-            <button class="btn" id="decBtn">-1</button>
-            <button class="btn" id="resetBtn">Reset</button>
-          </div>
-
-          <div style="margin-top: 6px;">
-            <h3 style="margin-bottom: 8px;">Room Ambient Accent</h3>
-            <div class="swatches-row" id="swatchesContainer"></div>
+      <!-- CARD 2: SHARED ROOM COUNTER & ACTION HISTORY -->
+      <article class="card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">Shared Room Counter</h2>
+            <span class="card-subtitle">Atomic transaction updates with live activity log</span>
           </div>
         </div>
 
-        <!-- Shared Reactions & Brainstorm Deck -->
-        <div class="widget-box">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Live Emoji Reactions</h3>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">Broadcast to room</span>
-          </div>
-
-          <!-- Emoji burst buttons -->
-          <div class="reactions-row">
-            <button class="react-btn" data-emoji="🚀" title="Send Rocket">🚀</button>
-            <button class="react-btn" data-emoji="🔥" title="Send Fire">🔥</button>
-            <button class="react-btn" data-emoji="🎉" title="Send Party">🎉</button>
-            <button class="react-btn" data-emoji="💡" title="Send Idea">💡</button>
-            <button class="react-btn" data-emoji="❤️" title="Send Heart">❤️</button>
-          </div>
-
-          <div style="margin-top: 6px;">
-            <h3 style="margin-bottom: 6px;">Shared Ideas &amp; Tasks</h3>
-            <div class="tasks-deck" id="tasksList"></div>
-            <form class="add-task-form" id="addTaskForm">
-              <input type="text" id="taskInput" class="add-task-input" placeholder="Add shared idea..." maxlength="60">
-              <button type="submit" class="btn" style="padding: 6px 12px;">Add</button>
-            </form>
+        <div class="counter-hero">
+          <div class="counter-value-display" id="counter-value">0</div>
+          <div class="counter-buttons-row">
+            <button class="btn-counter btn-counter-primary" id="btn-count-inc">+1 for Everyone</button>
+            <button class="btn-counter btn-counter-subtle" id="btn-count-dec">-1</button>
+            <button class="btn-counter btn-counter-subtle" id="btn-count-reset">Reset</button>
           </div>
         </div>
 
-      </div>
-
+        <div class="history-feed-title">
+          <span>Recent Counter Actions</span>
+          <span style="font-size:0.75rem; color:var(--text-tertiary);">Persisted in PostgreSQL</span>
+        </div>
+        <ul class="counter-history-list" id="counter-history-feed">
+          <li class="counter-history-item" style="color:var(--text-tertiary); justify-content:center;">No counter activity recorded yet.</li>
+        </ul>
+      </article>
     </section>
 
-    <!-- Right Column: Presence, Live Peers & Library Code -->
-    <aside style="display: flex; flex-direction: column; gap: 20px;">
-      
-      <!-- Online Presence Card -->
-      <div class="card presence-card">
-        <div class="presence-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Active Peers
-          </div>
-          <span class="presence-counter" id="peerCount">1 Online</span>
+    <!-- RIGHT SIDEBAR -->
+    <aside>
+      <!-- CARD 3: ACTIVE PARTICIPANTS -->
+      <article class="card">
+        <div class="card-header">
+          <h2 class="card-title">Room Presence</h2>
+          <span class="status-indicator-pill" id="peer-count-pill" style="color:var(--success);">1 Online</span>
         </div>
 
-        <ul class="peers-list" id="peersList"></ul>
+        <ul class="presence-roster" id="presence-roster"></ul>
 
-        <div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; border-top: 1px solid var(--border-color); padding-top: 12px;">
-          💡 <strong>Live Cursors:</strong> Move your mouse over this page. Other connected tabs will see your pointer and name tag move smoothly in real-time.
+        <div style="margin-top:14px; font-size:0.78rem; color:var(--text-secondary); border-top:1px solid var(--border-subtle); padding-top:10px;">
+          💡 <strong>Live Cursors:</strong> Move your mouse over this window. Your cursor coordinates are streamed to other participants in real time.
         </div>
-      </div>
+      </article>
 
-      <!-- 10-Line Integration Code Box -->
-      <div class="code-card">
-        <div class="code-card-header">
-          <span>⚡ Multiplayer in 10 lines API</span>
-          <span style="color: var(--accent); font-family: monospace;">syncspace.js</span>
+      <!-- CARD 4: REACTIONS & QUICK SHOUTS -->
+      <article class="card">
+        <div class="card-header">
+          <h2 class="card-title">Reactions &amp; Shouts</h2>
+          <span class="card-subtitle">Live room stream</span>
         </div>
-        <pre class="code-block"><code><span class="c">// 1. Connect to room</span>
-<span class="k">const</span> room = <span class="f">SyncSpace.connect</span>({
-  url: <span class="s">'wss://your-server'</span>,
-  room: <span class="s">'hackathon'</span>,
-  name: <span class="s">'Alex'</span>
-});
 
-<span class="c">// 2. Listen to state changes</span>
-room.<span class="f">on</span>(<span class="s">'state'</span>, (k, v) => <span class="f">updateUI</span>(k, v));
+        <!-- Emoji reaction bar -->
+        <div class="reaction-bar">
+          <button class="reaction-trigger-btn" data-emoji="🚀" title="Send Rocket">🚀</button>
+          <button class="reaction-trigger-btn" data-emoji="🎉" title="Send Party">🎉</button>
+          <button class="reaction-trigger-btn" data-emoji="🔥" title="Send Fire">🔥</button>
+          <button class="reaction-trigger-btn" data-emoji="💡" title="Send Idea">💡</button>
+          <button class="reaction-trigger-btn" data-emoji="👏" title="Send Applause">👏</button>
+          <button class="reaction-trigger-btn" data-emoji="❤️" title="Send Heart">❤️</button>
+        </div>
 
-<span class="c">// 3. Sync live cursors</span>
-room.<span class="f">on</span>(<span class="s">'cursor'</span>, (id, x, y, peer) => <span class="f">drawCursor</span>(id, x, y, peer));
-document.<span class="f">onmousemove</span> = e => room.<span class="f">cursor</span>(e.clientX/innerWidth, e.clientY/innerHeight);
+        <!-- Quick shouts feed -->
+        <div class="shout-stream" id="shout-stream">
+          <div style="font-size:0.78rem; color:var(--text-tertiary); text-align:center; padding:8px;">No shouts sent yet. Say hello below!</div>
+        </div>
 
-<span class="c">// 4. Mutate shared state (synced!)</span>
-room.<span class="f">set</span>(<span class="s">'score'</span>, 42);</code></pre>
-      </div>
+        <form class="shout-form" id="shout-form">
+          <input type="text" id="shout-input" class="shout-input" placeholder="Quick shout to room..." maxlength="180">
+          <button type="submit" class="pill-btn" style="background:var(--primary); color:#fff; border:none;">Send</button>
+        </form>
+      </article>
 
+      <!-- CARD 5: SHARED IDEAS & TASKS -->
+      <article class="card">
+        <div class="card-header">
+          <h2 class="card-title">Ideas &amp; Tasks</h2>
+          <span class="card-subtitle">Shared checklist</span>
+        </div>
+
+        <ul class="tasks-list" id="tasks-list"></ul>
+
+        <form id="task-add-form" style="display:flex; gap:8px;">
+          <input type="text" id="task-input" class="shout-input" placeholder="Add idea or task..." maxlength="70">
+          <button type="submit" class="pill-btn">Add</button>
+        </form>
+      </article>
     </aside>
+
   </main>
 
-  <!-- Toast Notification Container -->
-  <div id="toast-container"></div>
+  <!-- =========================================================================
+       VERSION HISTORY MODAL & RESTORE INSPECTOR
+       ========================================================================= -->
+  <div id="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
+    <div class="history-card">
+      <div class="history-card-header">
+        <div>
+          <h3 id="history-modal-title" style="font-size:1.15rem; font-weight:800;">Notepad Version History</h3>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">Saved versions from database (debounced 2s). Restoring creates a new version without deleting history.</p>
+        </div>
+        <button class="pill-btn" id="btn-close-history" style="height:32px; padding:0 10px;">Close ✕</button>
+      </div>
 
-  <!-- Scripts -->
+      <div class="history-card-body">
+        <div>
+          <h4 style="font-size:0.8rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:10px;">Past Versions</h4>
+          <ul class="version-items-list" id="version-items-list"></ul>
+        </div>
+
+        <div class="version-preview-pane">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong id="preview-version-author" style="font-size:0.85rem;">Select a version</strong>
+            <span id="preview-version-time" style="font-size:0.75rem; color:var(--text-tertiary);"></span>
+          </div>
+
+          <div class="version-preview-text" id="version-preview-content">Click on any past version on the left to preview its content.</div>
+
+          <button class="btn-counter btn-counter-primary" id="btn-restore-version" style="display:none; justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            <span>Restore this version</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST DECK -->
+  <div id="toast-deck"></div>
+
+  <!-- SCRIPTS -->
   <script src="config.js"></script>
   <script src="syncspace.js"></script>
   <script>
-    // Pure integration using ONLY the public SyncSpace API!
     (function () {
       var $ = function (id) { return document.getElementById(id); };
 
-      // 1. Resolve room from URL query param, or generate clean random room
-      var params = new URLSearchParams(window.location.search);
-      var roomId = params.get('room');
-      if (!roomId || !/^[A-Za-z0-9_-]{1,32}$/.test(roomId)) {
-        roomId = SyncSpace.randomRoom();
-        var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
+      // 1. Initial State & URL Parsing
+      var urlParams = new URLSearchParams(window.location.search);
+      var roomParam = urlParams.get('room');
+      var savedName = localStorage.getItem('synapse_display_name') || 'Asha';
+
+      // Prefill entry inputs
+      $('entry-name').value = savedName;
+      $('entry-room').value = (roomParam && /^[A-Za-z0-9_-]{1,32}$/.test(roomParam)) ? roomParam : Synapse.randomRoom();
+
+      $('btn-generate-code').onclick = function () {
+        $('entry-room').value = Synapse.randomRoom();
+      };
+
+      // 2. Room Entrance Handler
+      var activeRoom = null;
+      var selectedVersionId = null;
+
+      $('entry-form').onsubmit = function (e) {
+        e.preventDefault();
+        var displayName = $('entry-name').value.trim();
+        var roomCode = $('entry-room').value.trim();
+
+        if (!displayName) {
+          $('entry-error').textContent = 'Please provide a display name.';
+          return;
+        }
+        if (!/^[A-Za-z0-9_-]{1,32}$/.test(roomCode)) {
+          $('entry-error').textContent = 'Room code must be 1-32 letters, numbers, - or _';
+          return;
+        }
+
+        $('entry-error').textContent = '';
+        localStorage.setItem('synapse_display_name', displayName);
+
+        // Update URL bar without reloading
+        var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomCode;
         window.history.replaceState({ path: newUrl }, '', newUrl);
+
+        // Enter workspace
+        enterWorkspace(roomCode, displayName);
+      };
+
+      function enterWorkspace(roomCode, displayName) {
+        document.body.classList.add('in-room');
+        $('nav-room-code').textContent = roomCode;
+        $('nav-user-name').textContent = displayName;
+        $('nav-user-avatar').textContent = displayName.charAt(0).toUpperCase();
+
+        var wsUrl = window.SYNCSPACE_URL;
+        if (!wsUrl) {
+          var proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+          wsUrl = proto + (window.location.host || 'localhost:3000');
+        }
+
+        // Connect via Synapse library
+        activeRoom = Synapse.connect({
+          url: wsUrl,
+          room: roomCode,
+          name: displayName
+        });
+
+        setupRoomListeners(activeRoom);
       }
-      $('roomDisplay').textContent = roomId;
 
-      // 2. Resolve WebSocket Server URL
-      var wsUrl = window.SYNCSPACE_URL;
-      if (!wsUrl) {
-        var proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        wsUrl = proto + (window.location.host || 'localhost:3000');
-      }
+      function setupRoomListeners(room) {
+        // Status updates
+        function updateStatus(text, dotClass) {
+          $('nav-status-text').textContent = text;
+          $('nav-status-dot').className = 'pulse-dot ' + dotClass;
+        }
 
-      // 3. Resolve user identity
-      var myName = localStorage.getItem('syncspace-user-name') || ('Hacker-' + Math.floor(Math.random() * 900 + 100));
-      $('nameInput').value = myName;
+        room.on('open', function (info) {
+          updateStatus(info.reconnected ? 'Reconnected' : 'Connected', 'connected');
+          showToast(info.reconnected ? '⚡ Connection restored!' : 'Joined room ' + room.get('room', ''));
 
-      // 4. Connect to SyncSpace room
-      var room = SyncSpace.connect({
-        url: wsUrl,
-        room: roomId,
-        name: myName
-      });
+          if (info.dbConnected) {
+            $('nav-db-badge').textContent = '💾 PostgreSQL Synced';
+            $('nav-db-badge').classList.add('pg');
+          } else {
+            $('nav-db-badge').textContent = '💾 In-Memory Mode';
+            $('nav-db-badge').classList.remove('pg');
+          }
 
-      // Ambient theme swatches
-      var SWATCH_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
-      var swatchesEl = $('swatchesContainer');
-      SWATCH_COLORS.forEach(function (c) {
-        var btn = document.createElement('button');
-        btn.className = 'swatch-btn';
-        btn.dataset.color = c;
-        btn.style.backgroundColor = c;
-        btn.onclick = function () {
-          room.set('room_color', c);
-          applyRoomColor(c);
-        };
-        swatchesEl.appendChild(btn);
-      });
+          renderNotepad(room.get('pad'));
+          renderCounter(room.get('counter'));
+          renderTasks(room.get('tasks'));
+          renderHistoryCount(room.notepadHistory.length);
+          renderCounterHistory(room.counterHistory);
+        });
 
-      function applyRoomColor(color) {
-        var c = color || SWATCH_COLORS[0];
-        document.documentElement.style.setProperty('--room-accent', c);
-        $('ambientGlow').style.background = 'radial-gradient(circle, ' + c + ' 0%, transparent 70%)';
-        document.querySelectorAll('.swatch-btn').forEach(function (b) {
-          b.classList.toggle('active', b.dataset.color === c);
+        room.on('reconnecting', function (attempt) {
+          updateStatus('Reconnecting (#' + attempt + ')...', 'reconnecting');
+        });
+
+        room.on('close', function () {
+          updateStatus('Disconnected', 'closed');
+        });
+
+        room.on('error', function (err) {
+          showToast('Error: ' + err.message, true);
+        });
+
+        // State changes
+        room.on('state', function (key, value, byId) {
+          if (key === 'pad') {
+            renderNotepad(value);
+          } else if (key === 'counter') {
+            renderCounter(value);
+          } else if (key === 'tasks') {
+            renderTasks(value);
+          }
+        });
+
+        // History events
+        room.on('notepad-version-added', function (version, fullList) {
+          renderHistoryCount(fullList.length);
+          $('notepad-save-status').textContent = '✓ Saved version #' + version.id;
+          setTimeout(function () {
+            $('notepad-save-status').textContent = '✓ Auto-saved 2s after edits';
+          }, 3500);
+        });
+
+        room.on('counter-action-added', function (action, fullList) {
+          renderCounterHistory(fullList);
+        });
+
+        // Quick shouts
+        room.on('quick-shout', function (shout) {
+          appendShout(shout);
+        });
+
+        // Live reactions
+        room.on('reaction', function (emoji, from) {
+          spawnEmojiBurst(emoji);
+        });
+
+        // Presence & Peers
+        room.on('presence', function (peers) {
+          $('peer-count-pill').textContent = peers.length + ' Online';
+          var listEl = $('presence-roster');
+          listEl.innerHTML = '';
+          var meId = room.me().id;
+
+          peers.forEach(function (p) {
+            var li = document.createElement('li');
+            li.className = 'presence-user-row';
+
+            var av = document.createElement('div');
+            av.className = 'presence-color-circle';
+            av.style.backgroundColor = p.color || '#4f46e5';
+            av.textContent = (p.name || 'G').charAt(0).toUpperCase();
+
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'presence-user-name';
+            nameSpan.textContent = p.name;
+
+            li.appendChild(av);
+            li.appendChild(nameSpan);
+
+            if (p.id === meId) {
+              var youTag = document.createElement('span');
+              youTag.className = 'you-tag';
+              youTag.textContent = 'YOU';
+              li.appendChild(youTag);
+            }
+
+            listEl.appendChild(li);
+          });
+
+          // Clean disconnected cursors
+          document.querySelectorAll('.synapse-cursor').forEach(function (el) {
+            var cid = el.dataset.peerId;
+            if (!peers.some(function (p) { return p.id === cid; })) {
+              el.remove();
+            }
+          });
+        });
+
+        room.on('peer-join', function (peer) {
+          if (peer.id !== room.me().id) {
+            showToast('👋 ' + peer.name + ' joined the room');
+          }
+        });
+
+        room.on('peer-leave', function (id, departed) {
+          if (departed) {
+            showToast('👋 ' + departed.name + ' left the room');
+          }
+        });
+
+        // Live smooth cursors
+        document.addEventListener('mousemove', function (e) {
+          room.cursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+        });
+
+        room.on('cursor', function (id, x, y, peer) {
+          var cursorEl = document.querySelector('.synapse-cursor[data-peer-id="' + id + '"]');
+          if (!cursorEl) {
+            cursorEl = document.createElement('div');
+            cursorEl.className = 'synapse-cursor';
+            cursorEl.dataset.peerId = id;
+
+            var pColor = peer ? peer.color : '#4f46e5';
+            var pName = peer ? peer.name : 'Peer';
+
+            cursorEl.innerHTML =
+              '<svg viewBox="0 0 24 24" fill="' + pColor + '" stroke="#ffffff" stroke-width="1.2">' +
+                '<path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35z"/>' +
+              '</svg>' +
+              '<div class="synapse-cursor-badge" style="background-color:' + pColor + '">' + pName + '</div>';
+
+            document.body.appendChild(cursorEl);
+          }
+
+          var px = x * window.innerWidth;
+          var py = y * window.innerHeight;
+          cursorEl.style.transform = 'translate(' + px + 'px, ' + py + 'px)';
         });
       }
 
-      // Render all shared states
-      function renderState(key) {
-        // Counter
-        if (!key || key === 'counter') {
-          var count = room.get('counter') || 0;
-          $('counterBox').textContent = count;
-        }
+      // 3. Collaborative Notepad Logic
+      var padEl = $('live-notepad');
+      var typingTimer = null;
 
-        // Room color
-        if (!key || key === 'room_color') {
-          applyRoomColor(room.get('room_color'));
-        }
+      padEl.addEventListener('input', function () {
+        if (!activeRoom) return;
+        var text = padEl.value;
+        var cursorPos = padEl.selectionStart;
 
-        // Notepad
-        if (!key || key === 'pad') {
-          var padText = room.get('pad') || '';
-          var padEl = $('notepad');
-          if (document.activeElement !== padEl && padEl.value !== padText) {
-            var start = padEl.selectionStart;
-            var end = padEl.selectionEnd;
-            padEl.value = padText;
-            try { padEl.setSelectionRange(start, end); } catch (e) {}
-          }
-          updateNotepadStats(padEl.value);
-        }
+        activeRoom.set('pad', text, cursorPos);
+        updateNotepadStats(text);
 
-        // Shared Tasks / Ideas
-        if (!key || key === 'tasks') {
-          renderTasks(room.get('tasks') || []);
+        $('notepad-save-status').textContent = '⏳ Saving in 2s...';
+
+        activeRoom.set('typing_' + activeRoom.me().id, { name: activeRoom.me().name, t: Date.now() });
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(function () {
+          activeRoom.set('typing_' + activeRoom.me().id, undefined);
+        }, 1500);
+      });
+
+      function renderNotepad(text) {
+        var str = text || '';
+        if (document.activeElement !== padEl && padEl.value !== str) {
+          var s = padEl.selectionStart;
+          var e = padEl.selectionEnd;
+          padEl.value = str;
+          try { padEl.setSelectionRange(s, e); } catch (err) {}
         }
+        updateNotepadStats(str);
       }
 
       function updateNotepadStats(text) {
         var words = text.trim() ? text.trim().split(/\s+/).length : 0;
-        $('notepadStats').textContent = words + ' words · ' + text.length + ' characters';
+        $('notepad-stats').textContent = words + ' words · ' + text.length + ' characters';
       }
 
-      // Notepad user input
-      var typingTimer = null;
-      $('notepad').addEventListener('input', function () {
-        var val = $('notepad').value;
-        room.set('pad', val);
-        updateNotepadStats(val);
-
-        // Broadcast typing signal
-        room.set('typing_' + room.me().id, { name: room.me().name, t: Date.now() });
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(function () {
-          room.set('typing_' + room.me().id, undefined);
-        }, 1200);
-      });
-
-      // Counter button actions
-      $('incBtn').onclick = function () {
-        room.set('counter', (room.get('counter') || 0) + 1);
-        renderState('counter');
-      };
-
-      $('decBtn').onclick = function () {
-        room.set('counter', (room.get('counter') || 0) - 1);
-        renderState('counter');
-      };
-
-      $('resetBtn').onclick = function () {
-        room.set('counter', 0);
-        renderState('counter');
-      };
-
-      // Reactions / Emoji Spawner
-      document.querySelectorAll('.react-btn').forEach(function (btn) {
-        btn.onclick = function () {
-          var emoji = btn.dataset.emoji;
-          // Set reaction with unique timestamp to trigger across all peers
-          room.set('reaction', { emoji: emoji, t: Date.now(), from: room.me().name });
-          spawnFloatingEmoji(emoji);
-        };
-      });
-
-      function spawnFloatingEmoji(emoji) {
-        var el = document.createElement('div');
-        el.className = 'floating-reaction';
-        el.textContent = emoji;
-        el.style.left = (Math.random() * 70 + 15) + 'vw';
-        el.style.bottom = '80px';
-        el.style.setProperty('--drift', (Math.random() - 0.5).toString());
-        document.body.appendChild(el);
-        setTimeout(function () { el.remove(); }, 2400);
+      // 4. Shared Counter Controls
+      function renderCounter(val) {
+        $('counter-value').textContent = Number(val) || 0;
       }
 
-      // Shared Tasks / Ideas deck
-      function renderTasks(tasks) {
-        var listEl = $('tasksList');
+      $('btn-count-inc').onclick = function () {
+        if (activeRoom) activeRoom.counterAction('inc', 1);
+      };
+      $('btn-count-dec').onclick = function () {
+        if (activeRoom) activeRoom.counterAction('dec', 1);
+      };
+      $('btn-count-reset').onclick = function () {
+        if (activeRoom) activeRoom.counterAction('reset', 0);
+      };
+
+      function renderCounterHistory(actions) {
+        var listEl = $('counter-history-feed');
         listEl.innerHTML = '';
-        if (!tasks || tasks.length === 0) {
-          listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--text-dim); text-align:center; padding:12px;">No shared ideas yet. Add one below!</div>';
+        if (!actions || actions.length === 0) {
+          listEl.innerHTML = '<li class="counter-history-item" style="color:var(--text-tertiary); justify-content:center;">No counter activity recorded yet.</li>';
           return;
         }
 
-        tasks.forEach(function (task, idx) {
-          var item = document.createElement('div');
-          item.className = 'task-item' + (task.done ? ' completed' : '');
-          
-          var check = document.createElement('input');
-          check.type = 'checkbox';
-          check.className = 'task-toggle';
-          check.checked = !!task.done;
-          check.onchange = function () {
-            var curr = (room.get('tasks') || []).slice();
+        actions.slice(0, 20).forEach(function (act) {
+          var li = document.createElement('li');
+          li.className = 'counter-history-item';
+
+          var leftDiv = document.createElement('div');
+          leftDiv.style.display = 'flex';
+          leftDiv.style.alignItems = 'center';
+          leftDiv.style.gap = '8px';
+
+          var badge = document.createElement('span');
+          badge.className = 'action-badge ' + (act.action_type || 'inc');
+          badge.textContent = act.action_type === 'inc' ? '+1' : (act.action_type === 'dec' ? '-1' : 'Reset');
+
+          var bySpan = document.createElement('span');
+          bySpan.style.fontWeight = '600';
+          bySpan.textContent = act.display_name || 'Guest';
+
+          leftDiv.appendChild(badge);
+          leftDiv.appendChild(bySpan);
+
+          var rightDiv = document.createElement('div');
+          rightDiv.style.display = 'flex';
+          rightDiv.style.alignItems = 'center';
+          rightDiv.style.gap = '8px';
+
+          var valSpan = document.createElement('span');
+          valSpan.style.fontFamily = "'JetBrains Mono', monospace";
+          valSpan.style.fontWeight = '700';
+          valSpan.textContent = 'Result: ' + act.resulting_value;
+
+          var timeSpan = document.createElement('span');
+          timeSpan.style.color = 'var(--text-tertiary)';
+          timeSpan.style.fontSize = '0.75rem';
+          timeSpan.textContent = formatRelativeTime(act.created_at);
+
+          rightDiv.appendChild(valSpan);
+          rightDiv.appendChild(timeSpan);
+
+          li.appendChild(leftDiv);
+          li.appendChild(rightDiv);
+          listEl.appendChild(li);
+        });
+      }
+
+      // 5. Version History & Restore Modal
+      function renderHistoryCount(count) {
+        $('history-count').textContent = count;
+      }
+
+      $('btn-open-history').onclick = function () {
+        if (!activeRoom) return;
+        $('history-modal').classList.add('open');
+        renderHistoryList(activeRoom.notepadHistory);
+      };
+
+      $('btn-close-history').onclick = function () {
+        $('history-modal').classList.remove('open');
+      };
+
+      function renderHistoryList(versions) {
+        var listEl = $('version-items-list');
+        listEl.innerHTML = '';
+        if (!versions || versions.length === 0) {
+          listEl.innerHTML = '<div style="color:var(--text-tertiary); font-size:0.85rem; padding:12px;">No saved versions yet. Keep typing to auto-save!</div>';
+          $('version-preview-content').textContent = 'No versions recorded yet.';
+          $('btn-restore-version').style.display = 'none';
+          return;
+        }
+
+        versions.forEach(function (v, idx) {
+          var item = document.createElement('li');
+          item.className = 'version-item-card' + (idx === 0 ? ' selected' : '');
+
+          var row1 = document.createElement('div');
+          row1.style.display = 'flex';
+          row1.style.justifyContent = 'space-between';
+          row1.style.fontWeight = '700';
+          row1.style.fontSize = '0.85rem';
+          row1.innerHTML = '<span>Version #' + v.id + '</span><span style="color:var(--text-tertiary); font-weight:400; font-size:0.75rem;">' + formatRelativeTime(v.created_at) + '</span>';
+
+          var row2 = document.createElement('div');
+          row2.style.fontSize = '0.78rem';
+          row2.style.color = 'var(--text-secondary)';
+          row2.style.marginTop = '4px';
+          row2.textContent = 'By ' + v.display_name + ' · ' + v.char_count + ' chars';
+
+          item.appendChild(row1);
+          item.appendChild(row2);
+
+          item.onclick = function () {
+            document.querySelectorAll('.version-item-card').forEach(function (c) { c.classList.remove('selected'); });
+            item.classList.add('selected');
+            selectVersionPreview(v);
+          };
+
+          listEl.appendChild(item);
+        });
+
+        if (versions.length > 0) {
+          selectVersionPreview(versions[0]);
+        }
+      }
+
+      function selectVersionPreview(version) {
+        selectedVersionId = version.id;
+        $('preview-version-author').textContent = 'Version #' + version.id + ' by ' + version.display_name;
+        $('preview-version-time').textContent = new Date(version.created_at).toLocaleTimeString();
+        $('version-preview-content').textContent = version.saved_text;
+        $('btn-restore-version').style.display = 'flex';
+      }
+
+      $('btn-restore-version').onclick = function () {
+        if (!activeRoom || !selectedVersionId) return;
+        activeRoom.restoreVersion(selectedVersionId);
+        showToast('Restored version #' + selectedVersionId + '! (New version saved)');
+        $('history-modal').classList.remove('open');
+      };
+
+      // 6. Reactions & Quick Shouts
+      document.querySelectorAll('.reaction-trigger-btn').forEach(function (btn) {
+        btn.onclick = function () {
+          var em = btn.dataset.emoji;
+          if (activeRoom) {
+            activeRoom.sendReaction(em);
+            spawnEmojiBurst(em);
+          }
+        };
+      });
+
+      function spawnEmojiBurst(emoji) {
+        var el = document.createElement('div');
+        el.className = 'floating-emoji';
+        el.textContent = emoji;
+        el.style.left = (Math.random() * 60 + 20) + 'vw';
+        el.style.bottom = '100px';
+        el.style.setProperty('--drift', (Math.random() - 0.5).toString());
+        document.body.appendChild(el);
+        setTimeout(function () { el.remove(); }, 2200);
+      }
+
+      $('shout-form').onsubmit = function (e) {
+        e.preventDefault();
+        var input = $('shout-input');
+        var text = input.value.trim();
+        if (!text || !activeRoom) return;
+        activeRoom.quickShout(text);
+        input.value = '';
+      };
+
+      function appendShout(shout) {
+        var container = $('shout-stream');
+        if (container.firstElementChild && container.firstElementChild.textContent.includes('No shouts')) {
+          container.innerHTML = '';
+        }
+        var bubble = document.createElement('div');
+        bubble.className = 'shout-message-bubble';
+        bubble.innerHTML = '<span class="shout-sender" style="color:' + (shout.color || 'var(--primary)') + '">' + shout.from + ':</span>' + escapeHtml(shout.message);
+        container.appendChild(bubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // 7. Tasks & Ideas Checklist
+      function renderTasks(tasks) {
+        var listEl = $('tasks-list');
+        listEl.innerHTML = '';
+        var arr = tasks || [];
+        if (arr.length === 0) {
+          listEl.innerHTML = '<li style="font-size:0.8rem; color:var(--text-tertiary); text-align:center; padding:10px;">No shared tasks or ideas yet.</li>';
+          return;
+        }
+
+        arr.forEach(function (t, idx) {
+          var li = document.createElement('li');
+          li.className = 'task-item-row' + (t.done ? ' completed' : '');
+
+          var chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.className = 'task-checkbox';
+          chk.checked = !!t.done;
+          chk.onchange = function () {
+            var curr = (activeRoom.get('tasks') || []).slice();
             if (curr[idx]) {
-              curr[idx].done = check.checked;
-              room.set('tasks', curr);
+              curr[idx].done = chk.checked;
+              activeRoom.set('tasks', curr);
             }
           };
 
           var title = document.createElement('span');
-          title.textContent = task.text;
           title.style.flex = '1';
+          title.textContent = t.text;
 
           var del = document.createElement('button');
-          del.className = 'task-del';
+          del.className = 'task-delete-btn';
           del.innerHTML = '&times;';
-          del.title = 'Delete item';
           del.onclick = function () {
-            var curr = (room.get('tasks') || []).slice();
+            var curr = (activeRoom.get('tasks') || []).slice();
             curr.splice(idx, 1);
-            room.set('tasks', curr);
+            activeRoom.set('tasks', curr);
           };
 
-          item.appendChild(check);
-          item.appendChild(title);
-          item.appendChild(del);
-          listEl.appendChild(item);
+          li.appendChild(chk);
+          li.appendChild(title);
+          li.appendChild(del);
+          listEl.appendChild(li);
         });
       }
 
-      $('addTaskForm').onsubmit = function (e) {
+      $('task-add-form').onsubmit = function (e) {
         e.preventDefault();
-        var input = $('taskInput');
+        var input = $('task-input');
         var text = input.value.trim();
-        if (!text) return;
-        var curr = (room.get('tasks') || []).slice();
-        curr.push({ text: text, done: false, id: Date.now() });
-        room.set('tasks', curr);
+        if (!text || !activeRoom) return;
+        var curr = (activeRoom.get('tasks') || []).slice();
+        curr.push({ id: Date.now(), text: text, done: false });
+        activeRoom.set('tasks', curr);
         input.value = '';
       };
 
-      // Header controls
-      $('nameInput').onchange = function () {
-        var newName = $('nameInput').value.trim() || 'Guest';
-        localStorage.setItem('syncspace-user-name', newName);
-        window.location.reload();
-      };
-
-      $('copyBtn').onclick = function () {
-        var textToCopy = window.location.href;
-        navigator.clipboard.writeText(textToCopy).then(function () {
-          $('copyBtnText').textContent = 'Copied! ✓';
+      // 8. Navigation & Controls
+      $('btn-copy-room').onclick = function () {
+        var url = window.location.href;
+        navigator.clipboard.writeText(url).then(function () {
+          $('copy-btn-label').textContent = 'Copied! ✓';
           showToast('Shareable room link copied to clipboard!');
           setTimeout(function () {
-            $('copyBtnText').textContent = 'Copy Link';
+            $('copy-btn-label').textContent = 'Copy link';
           }, 2000);
-        }).catch(function () {
-          showToast('Could not copy link automatically. Please copy the URL bar.');
         });
       };
 
-      $('newRoomBtn').onclick = function () {
-        window.location.search = '?room=' + SyncSpace.randomRoom();
+      $('btn-switch-room').onclick = function () {
+        if (activeRoom) activeRoom.close();
+        document.body.classList.remove('in-room');
       };
 
-      // Test Disconnect button
-      $('simDisconnectBtn').onclick = function () {
-        showToast('⚡ Simulating network cut! Watching reconnection...');
-        room.simulateDisconnect();
+      $('btn-rename').onclick = function () {
+        var current = $('nav-user-name').textContent;
+        var updated = prompt('Enter your new display name:', current);
+        if (updated && updated.trim()) {
+          var name = updated.trim().slice(0, 28);
+          localStorage.setItem('synapse_display_name', name);
+          $('nav-user-name').textContent = name;
+          $('nav-user-avatar').textContent = name.charAt(0).toUpperCase();
+          if (activeRoom) {
+            // Reconnect with new name
+            activeRoom.close();
+            enterWorkspace($('nav-room-code').textContent, name);
+          }
+        }
       };
 
-      // Connection Status
-      function updateConnectionUI(statusText, dotClass) {
-        $('statusLabel').textContent = statusText;
-        $('statusDot').className = 'status-dot ' + dotClass;
-      }
-
-      // SyncSpace Event Listeners
-      room.on('open', function (info) {
-        var myPeer = room.me();
-        $('myColorDot').style.backgroundColor = myPeer.color || '#6366f1';
-        updateConnectionUI(info.reconnected ? 'Reconnected' : 'Connected', 'open');
-        showToast(info.reconnected ? '⚡ Connection restored! Latest room state synced.' : 'Connected to room ' + roomId);
-        renderState();
-      });
-
-      room.on('reconnecting', function (attempt, delay) {
-        updateConnectionUI('Reconnecting (#' + attempt + ')...', 'reconnecting');
-      });
-
-      room.on('close', function () {
-        updateConnectionUI('Disconnected', 'closed');
-      });
-
-      room.on('error', function (err) {
-        showToast('Error: ' + err.message, true);
-      });
-
-      // Presence
-      room.on('presence', function (peers) {
-        $('peerCount').textContent = peers.length + ' Online';
-        var listEl = $('peersList');
-        listEl.innerHTML = '';
-        var meId = room.me().id;
-
-        peers.forEach(function (p) {
-          var li = document.createElement('li');
-          li.className = 'peer-item';
-
-          var av = document.createElement('div');
-          av.className = 'peer-avatar';
-          av.style.backgroundColor = p.color || '#6366f1';
-          av.textContent = (p.name || 'G').charAt(0).toUpperCase();
-
-          var info = document.createElement('div');
-          info.className = 'peer-info';
-
-          var nameDiv = document.createElement('div');
-          nameDiv.className = 'peer-name';
-          nameDiv.textContent = p.name;
-          if (p.id === meId) {
-            var youBadge = document.createElement('span');
-            youBadge.className = 'peer-badge-you';
-            youBadge.textContent = 'YOU';
-            nameDiv.appendChild(youBadge);
-          }
-
-          var statDiv = document.createElement('div');
-          statDiv.className = 'peer-status';
-          statDiv.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span> Active in room';
-
-          info.appendChild(nameDiv);
-          info.appendChild(statDiv);
-          li.appendChild(av);
-          li.appendChild(info);
-          listEl.appendChild(li);
-        });
-
-        // Prune cursors of peers who have left
-        document.querySelectorAll('.cursor-peer').forEach(function (cursorEl) {
-          var cid = cursorEl.dataset.peerId;
-          if (!peers.some(function (p) { return p.id === cid; })) {
-            cursorEl.remove();
-          }
-        });
-      });
-
-      room.on('peer-join', function (peer) {
-        if (peer.id !== room.me().id) {
-          showToast('👋 ' + peer.name + ' joined the room');
+      $('btn-test-disconnect').onclick = function () {
+        if (activeRoom) {
+          showToast('⚡ Simulating network drop! Testing automatic reconnection...');
+          activeRoom.simulateDisconnect();
         }
-      });
+      };
 
-      room.on('peer-leave', function (id, departed) {
-        if (departed) {
-          showToast('👋 ' + departed.name + ' left the room');
-        }
-      });
-
-      // State updates
-      room.on('state', function (key, val, byId) {
-        if (key === 'reaction' && val) {
-          if (byId !== room.me().id) {
-            spawnFloatingEmoji(val.emoji);
-          }
-          return;
-        }
-
-        if (key && key.startsWith('typing_')) {
-          var typist = val ? val.name : null;
-          $('typingStatus').textContent = typist && byId !== room.me().id ? ('✏️ ' + typist + ' is typing...') : '';
-          return;
-        }
-
-        renderState(key);
-      });
-
-      // Live Cursors
-      document.addEventListener('mousemove', function (e) {
-        // Send normalized 0.0 - 1.0 fractional coordinates
-        room.cursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
-      });
-
-      room.on('cursor', function (id, x, y, peer) {
-        var cursorEl = document.querySelector('.cursor-peer[data-peer-id="' + id + '"]');
-        if (!cursorEl) {
-          cursorEl = document.createElement('div');
-          cursorEl.className = 'cursor-peer';
-          cursorEl.dataset.peerId = id;
-          
-          var pColor = peer ? peer.color : '#818cf8';
-          var pName = peer ? peer.name : 'Peer';
-
-          cursorEl.innerHTML = 
-            '<svg viewBox="0 0 24 24" fill="' + pColor + '" stroke="#ffffff" stroke-width="1.2">' +
-              '<path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35z"/>' +
-            '</svg>' +
-            '<div class="cursor-peer-label" style="background-color:' + pColor + '">' + pName + '</div>';
-
-          document.body.appendChild(cursorEl);
-        }
-
-        var px = x * window.innerWidth;
-        var py = y * window.innerHeight;
-        cursorEl.style.transform = 'translate(' + px + 'px, ' + py + 'px)';
-      });
-
-      // Toast notification helper
+      // Utility helpers
       function showToast(msg, isError) {
-        var container = $('toast-container');
+        var deck = $('toast-deck');
         var toast = document.createElement('div');
-        toast.className = 'toast-msg' + (isError ? ' error' : '');
+        toast.className = 'toast-pill';
+        if (isError) toast.style.backgroundColor = 'var(--danger)';
         toast.textContent = msg;
-        container.appendChild(toast);
+        deck.appendChild(toast);
         setTimeout(function () {
-          toast.style.transition = 'opacity 0.3s, transform 0.3s';
+          toast.style.transition = 'opacity 0.25s, transform 0.25s';
           toast.style.opacity = '0';
           toast.style.transform = 'translateY(10px)';
-          setTimeout(function () { toast.remove(); }, 300);
-        }, 3500);
+          setTimeout(function () { toast.remove(); }, 250);
+        }, 3200);
       }
 
-      renderState();
+      function formatRelativeTime(dateStr) {
+        if (!dateStr) return '';
+        var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+        if (diff < 5) return 'Just now';
+        if (diff < 60) return diff + 's ago';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        return Math.floor(diff / 3600) + 'h ago';
+      }
+
+      function escapeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
     })();
   </script>
 </body>

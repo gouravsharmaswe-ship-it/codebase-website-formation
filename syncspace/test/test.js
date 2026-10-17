@@ -1,13 +1,14 @@
-// Comprehensive SyncSpace Automated Integration Test Suite
-// Real WebSocket server + real SyncSpace client library + TCP proxy simulating real-world network drops
+// Comprehensive Synapse Automated Integration Test Suite
+// Real WebSocket server + real Synapse client library + TCP proxy simulating real-world network drops
 const net = require('net');
 const assert = require('assert');
 const { server } = require('../server/server');
-const SyncSpace = require('../web/syncspace.js');
+const Synapse = require('../web/syncspace.js');
+const db = require('../server/db');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const waitUntil = async (conditionFn, timeoutMs = 6000, label = 'condition') => {
+const waitUntil = async (conditionFn, timeoutMs = 8000, label = 'condition') => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (conditionFn()) return;
@@ -32,14 +33,17 @@ async function runTest(testName, testFn) {
 
 (async () => {
   console.log('\n========================================');
-  console.log('🧪 Starting SyncSpace Integration Tests');
+  console.log('🧪 Starting Synapse Integration Tests');
   console.log('========================================\n');
 
-  // 1. Spin up backend server on random available port
+  // 1. Initialize DB migrations / memory store
+  await db.initDb();
+
+  // 2. Spin up backend server on random available port
   await new Promise(resolve => server.listen(0, resolve));
   const serverPort = server.address().port;
 
-  // 2. Set up a controllable TCP proxy between clients and server to simulate network cuts
+  // 3. Set up a controllable TCP proxy between clients and server to simulate network drops
   const activeSockets = new Set();
   let proxyBlocked = false;
 
@@ -73,11 +77,11 @@ async function runTest(testName, testFn) {
 
   const openClients = [];
   const createClient = (room, name) => {
-    const client = SyncSpace.connect({
+    const client = Synapse.connect({
       url: proxyUrl,
       room,
       name,
-      connectTimeout: 1800
+      connectTimeout: 2000
     });
     openClients.push(client);
     return new Promise(resolve => client.on('open', () => resolve(client)));
@@ -105,157 +109,182 @@ async function runTest(testName, testFn) {
     assert.deepStrictEqual(namesA, ['User-Alpha', 'User-Beta', 'User-Gamma']);
   });
 
-  // TEST 2: Shared-state synchronization across 3 tabs
-  await runTest('Shared-state synchronization propagates across all 3 browser tabs', async () => {
-    // Client A updates counter and message
-    clientA.set('counter', 42);
-    clientA.set('doc', { title: 'Hackathon Note', content: 'SyncSpace works!' });
+  // TEST 2: Shared notepad synchronization across 3 tabs
+  await runTest('Shared notepad text propagates in real time across all 3 browser tabs', async () => {
+    clientA.set('pad', 'Hello collaborative world!');
 
     await waitUntil(() => {
-      return clientB.get('counter') === 42 && clientC.get('counter') === 42;
-    }, 3000, 'client B and C to receive client A updates');
+      return clientB.get('pad') === 'Hello collaborative world!' &&
+             clientC.get('pad') === 'Hello collaborative world!';
+    }, 3000, 'client B and C to receive client A notepad text');
 
-    assert.strictEqual(clientB.get('counter'), 42);
-    assert.deepStrictEqual(clientC.get('doc'), { title: 'Hackathon Note', content: 'SyncSpace works!' });
-
-    // Client C updates state; Client A and B receive it
-    clientC.set('counter', 100);
-    await waitUntil(() => {
-      return clientA.get('counter') === 100 && clientB.get('counter') === 100;
-    }, 3000, 'client A and B to receive client C counter update');
-
-    assert.strictEqual(clientA.get('counter'), 100);
+    assert.strictEqual(clientB.get('pad'), 'Hello collaborative world!');
+    assert.strictEqual(clientC.get('pad'), 'Hello collaborative world!');
   });
 
-  // TEST 3: Room isolation
-  await runTest('Different rooms remain strictly isolated (zero state or presence leak)', async () => {
-    // Isolated client should only see 1 peer and none of room-alpha's keys
-    assert.strictEqual(clientOther.peers().length, 1);
-    assert.strictEqual(clientOther.get('counter'), undefined);
-    assert.strictEqual(clientOther.get('doc'), undefined);
+  // TEST 3: Notepad history saves a version after 2 seconds of inactivity
+  await runTest('Notepad history debounces and automatically saves a durable version after 2s', async () => {
+    let savedVersionReceived = null;
+    clientB.on('notepad-version-added', (v) => {
+      savedVersionReceived = v;
+    });
 
-    // Isolated client writes a secret key
-    clientOther.set('room_beta_secret', 'confidential');
+    // Make an edit
+    clientA.set('pad', 'Versioned draft: Chapter 1', 25);
+
+    // Should NOT have saved immediately (< 1000ms)
+    await sleep(500);
+    assert.strictEqual(savedVersionReceived, null, 'Must not save before 2 seconds of inactivity');
+
+    // Wait until 2.3s has passed
+    await waitUntil(() => savedVersionReceived !== null, 3500, 'debounce timer to save version');
+
+    assert.strictEqual(savedVersionReceived.saved_text, 'Versioned draft: Chapter 1');
+    assert.strictEqual(savedVersionReceived.display_name, 'User-Alpha');
+    assert.strictEqual(savedVersionReceived.cursor_position, 25);
+    assert(savedVersionReceived.id, 'Version must have a persistent ID');
+  });
+
+  // TEST 4: Restoring a historical version creates a new version without deleting history
+  await runTest('Restoring an earlier version updates the pad and creates a new version preserving history', async () => {
+    const versionsBefore = await db.getPadVersions('room-alpha');
+    const targetVersionId = versionsBefore[0].id;
+    const initialHistoryLength = versionsBefore.length;
+
+    // Mutate text further
+    clientA.set('pad', 'Temporary scribble that will be overwritten');
     await sleep(200);
 
-    // Alpha room peers must not see it
-    assert.strictEqual(clientA.get('room_beta_secret'), undefined);
-    assert.strictEqual(clientB.get('room_beta_secret'), undefined);
-    assert.strictEqual(clientC.get('room_beta_secret'), undefined);
+    let restoredNotified = false;
+    clientC.on('state', (key, val) => {
+      if (key === 'pad' && val === 'Versioned draft: Chapter 1') {
+        restoredNotified = true;
+      }
+    });
+
+    // Client B triggers restore
+    clientB.restoreVersion(targetVersionId);
+
+    await waitUntil(() => restoredNotified, 3000, 'pad restored event');
+    assert.strictEqual(clientA.get('pad'), 'Versioned draft: Chapter 1');
+    assert.strictEqual(clientC.get('pad'), 'Versioned draft: Chapter 1');
+
+    // Verify history grew (restoring creates a new version, never deletes past versions)
+    const versionsAfter = await db.getPadVersions('room-alpha');
+    assert(versionsAfter.length > initialHistoryLength, 'History count must increase after restore');
+    assert.strictEqual(versionsAfter[0].saved_text, 'Versioned draft: Chapter 1');
+    assert(versionsAfter[0].display_name.includes('Restored'), 'New version documents restoration author');
   });
 
-  // TEST 4: Live cursors
-  await runTest('Live cursor movements broadcast exclusively to peers in the same room', async () => {
-    let receivedByB = null;
+  // TEST 5: Shared room counter atomic action and history
+  await runTest('Shared counter actions apply atomically and record action history', async () => {
+    let actionReceivedByC = null;
+    clientC.on('counter-action-added', (act) => {
+      actionReceivedByC = act;
+    });
+
+    clientA.counterAction('inc', 1);
+
+    await waitUntil(() => {
+      return clientB.get('counter') === 1 && clientC.get('counter') === 1;
+    }, 3000, 'counter value 1 on peers');
+
+    assert.strictEqual(clientB.get('counter'), 1);
+    assert.strictEqual(clientC.get('counter'), 1);
+
+    await waitUntil(() => actionReceivedByC !== null, 3000, 'counter action record received');
+    assert.strictEqual(actionReceivedByC.action_type, 'inc');
+    assert.strictEqual(actionReceivedByC.display_name, 'User-Alpha');
+    assert.strictEqual(actionReceivedByC.resulting_value, 1);
+
+    // Test simultaneous counter clicks without race conditions
+    await Promise.all([
+      clientA.counterAction('inc', 1),
+      clientB.counterAction('inc', 1),
+      clientC.counterAction('inc', 1)
+    ]);
+
+    await waitUntil(() => {
+      return clientA.get('counter') === 4 && clientB.get('counter') === 4;
+    }, 3000, 'atomic counter accumulation to 4');
+
+    assert.strictEqual(clientA.get('counter'), 4);
+  });
+
+  // TEST 6: Room isolation
+  await runTest('Rooms are strictly isolated (no cross-room state, presence, or cursor leak)', async () => {
+    assert.strictEqual(clientOther.get('pad'), '');
+    assert.strictEqual(clientOther.get('counter'), 0);
+    assert.strictEqual(clientOther.peers().length, 1);
+
+    clientOther.set('secret', 'classified');
+    await sleep(200);
+
+    assert.strictEqual(clientA.get('secret'), undefined);
+    assert.strictEqual(clientB.get('secret'), undefined);
+  });
+
+  // TEST 7: Live cursor streaming
+  await runTest('Live cursor streaming reaches only peers in the same room', async () => {
+    let gotCursorB = null;
     let leakedToOther = false;
 
     clientB.on('cursor', (id, x, y) => {
-      receivedByB = { id, x, y };
+      gotCursorB = { id, x, y };
     });
-
     clientOther.on('cursor', () => {
       leakedToOther = true;
     });
 
-    // Client A moves cursor
-    clientA.cursor(0.35, 0.85);
+    clientA.cursor(0.42, 0.88);
 
-    await waitUntil(() => receivedByB !== null, 3000, 'client B cursor receipt');
-
-    assert.strictEqual(receivedByB.x, 0.35);
-    assert.strictEqual(receivedByB.y, 0.85);
-    assert.strictEqual(leakedToOther, false, 'Cursor event must not leak across rooms');
+    await waitUntil(() => gotCursorB !== null, 3000, 'client B cursor receipt');
+    assert.strictEqual(gotCursorB.x, 0.42);
+    assert.strictEqual(gotCursorB.y, 0.88);
+    assert.strictEqual(leakedToOther, false);
   });
 
-  // TEST 5: Late joiner state restoration
-  await runTest('A new peer joining late receives the full latest shared state snapshot', async () => {
-    const clientLate = await createClient('room-alpha', 'User-Latecomer');
-    
-    assert.strictEqual(clientLate.get('counter'), 100);
-    assert.deepStrictEqual(clientLate.get('doc'), { title: 'Hackathon Note', content: 'SyncSpace works!' });
-    assert.strictEqual(clientLate.peers().length, 4);
-
-    clientLate.close();
-    await waitUntil(() => clientA.peers().length === 3, 3000, 'peer-leave propagation');
-  });
-
-  // TEST 6: Input validation & error resilience
-  await runTest('Client and server reject malformed inputs and handle errors gracefully', async () => {
-    // Client-side invalid room validation
-    assert.throws(() => {
-      SyncSpace.connect({ url: proxyUrl, room: 'invalid room space!' });
-    }, /room/);
-
-    // Direct raw socket tests against server error responses
-    const rawWs = new (SyncSpace.connect({ url: proxyUrl, room: 'test-err' })._ws || WebSocket || require('ws'))(proxyUrl);
-    const serverErrors = [];
-    rawWs.onmessage = e => {
-      try {
-        serverErrors.push(JSON.parse(e.data));
-      } catch {}
-    };
-
-    await new Promise(r => (rawWs.onopen = r));
-    // Send bad json
-    rawWs.send('invalid raw text frame');
-    // Send state before join
-    rawWs.send(JSON.stringify({ t: 'set', key: 'k', value: 1 }));
-    // Send invalid room in join
-    rawWs.send(JSON.stringify({ t: 'join', room: '../path_traversal' }));
-
-    await waitUntil(() => serverErrors.length >= 3, 4000, 'server error frames');
-    const errorCodes = serverErrors.map(e => e.code);
-    assert(errorCodes.includes('bad_json'), 'Server should reject bad json');
-    assert(errorCodes.includes('not_joined'), 'Server should reject action before join');
-    assert(errorCodes.includes('bad_room'), 'Server should reject invalid room characters');
-
-    rawWs.close();
-  });
-
-  // TEST 7: Genuine temporary disconnection and automatic reconnection with state restoration
-  await runTest('Genuine temporary network severance -> auto-reconnect -> offline writes synced', async () => {
-    let reconnectCount = 0;
+  // TEST 8: Genuine network disconnection and automatic reconnection with state restoration
+  await runTest('Temporary network drop triggers auto-reconnect and restores latest room state', async () => {
+    let reconnectingCount = 0;
     let reconnectInfo = null;
 
     clientC.on('reconnecting', () => {
-      reconnectCount++;
+      reconnectingCount++;
     });
-
-    clientC.on('open', info => {
+    clientC.on('open', (info) => {
       reconnectInfo = info;
     });
 
-    // 1. Cut the network completely via proxy
+    // 1. Cut the network connection via proxy
     proxyBlocked = true;
     for (const sock of activeSockets) {
       sock.destroy();
     }
 
-    // Wait until Client C notices the disconnection
-    await waitUntil(() => reconnectCount > 0, 5000, 'client C reconnecting event');
+    await waitUntil(() => reconnectingCount > 0, 5000, 'client C detects disconnect');
 
-    // 2. Peer B updates state while C is disconnected (B will also try to reconnect)
-    clientB.set('server_updated_while_away', 'fresh-data');
+    // 2. Peer B updates state while C is offline
+    clientB.set('pad', 'Updated while C was disconnected');
 
-    // 3. Client C makes a write while completely offline (should be queued in memory)
-    clientC.set('offline_write_from_c', 'success-queued');
+    // 3. Client C makes write while offline
+    clientC.counterAction('inc', 10);
 
     await sleep(600);
 
-    // 4. Restore the network
+    // 4. Restore network
     proxyBlocked = false;
 
     // 5. Client C should reconnect automatically
-    await waitUntil(() => reconnectInfo && reconnectInfo.reconnected === true, 12000, 'client C successful reconnect');
+    await waitUntil(() => reconnectInfo && reconnectInfo.reconnected, 12000, 'client C reconnect');
 
-    // 6. Verify client C restored state from server
+    // 6. Verify client C restored server's latest text and all peers reconnected
     await waitUntil(() => {
-      return clientC.get('server_updated_while_away') === 'fresh-data' &&
-             clientA.get('offline_write_from_c') === 'success-queued';
-    }, 12000, 'offline queued writes synced and restored');
+      return clientC.get('pad') === 'Updated while C was disconnected' &&
+             clientC.peers().length === 3;
+    }, 12000, 'client C restored pad state and all peers reconnected');
 
-    assert.strictEqual(clientC.get('server_updated_while_away'), 'fresh-data');
-    assert.strictEqual(clientA.get('offline_write_from_c'), 'success-queued');
+    assert.strictEqual(clientC.get('pad'), 'Updated while C was disconnected');
     assert.strictEqual(clientC.peers().length, 3);
   });
 

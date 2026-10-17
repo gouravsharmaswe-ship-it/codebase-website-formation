@@ -1,23 +1,30 @@
 {
-  "name": "syncspace",
-  "version": "1.0.0",
-  "description": "Multiplayer in 10 lines: Real-time shared state, live cursors, and presence library",
+  "name": "synapse",
+  "version": "2.0.0",
+  "description": "Advanced real-time multiplayer collaboration workspace — shared notepad, counter, kanban, chat, file board, history replay, and admin dashboard",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
     "test": "node test/test.js"
   },
   "keywords": [
     "multiplayer",
     "websockets",
     "real-time",
+    "collaboration",
     "presence",
     "live-cursors",
-    "sync"
+    "kanban",
+    "chat",
+    "postgresql"
   ],
-  "author": "SyncSpace Team",
+  "author": "Synapse Team",
   "license": "MIT",
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "pg": "^8.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.1.0"
   }
 }

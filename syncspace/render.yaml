@@ -1,6 +1,12 @@
+databases:
+  - name: synapse-db
+    databaseName: synapse
+    user: synapse
+    plan: free
+
 services:
   - type: web
-    name: syncspace-server
+    name: synapse-server
     runtime: node
     plan: free
     buildCommand: npm install
@@ -10,3 +16,13 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: synapse-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        sync: false

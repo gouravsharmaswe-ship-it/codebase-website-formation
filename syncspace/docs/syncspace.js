@@ -1,25 +1,22 @@
 /*!
- * SyncSpace.js — Multiplayer in 10 lines!
- * Single-file, dependency-free real-time client library.
- *
- * Quickstart:
- *   const room = SyncSpace.connect({ url: 'wss://your-server', room: 'demo', name: 'Alex' });
- *   room.on('state', (key, val) => console.log(key, val));
- *   room.set('score', 42);
- *   room.on('cursor', (id, x, y, peer) => drawCursor(id, x, y, peer));
- *   document.onmousemove = e => room.cursor(e.clientX / innerWidth, e.clientY / innerHeight);
+ * Synapse.js (formerly SyncSpace) — Real-time Multiplayer Coordination Client Library
+ * Single-file, dependency-free real-time collaboration.
  *
  * Public API:
- *   SyncSpace.connect({ url, room, name, clientId, connectTimeout })
- *   SyncSpace.randomRoom()
+ *   Synapse.connect({ url, room, name, clientId, connectTimeout })
+ *   Synapse.randomRoom()
  *
- * Room instance methods:
- *   room.set(key, value)
+ * Room Methods:
+ *   room.set(key, value, [cursorPosition])
+ *   room.counterAction(action, [amount])
+ *   room.restoreVersion(versionId)
+ *   room.quickShout(message)
+ *   room.sendReaction(emoji)
+ *   room.cursor(x, y)
  *   room.get(key)
  *   room.getAll()
  *   room.peers()
  *   room.me()
- *   room.cursor(x, y)
  *   room.on(event, fn)
  *   room.off(event, fn)
  *   room.close()
@@ -28,10 +25,12 @@
  */
 
 (function (root, factory) {
+  var lib = factory();
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    module.exports = lib;
   } else {
-    root.SyncSpace = factory();
+    root.Synapse = lib;
+    root.SyncSpace = lib; // Backward-compatible alias
   }
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
@@ -47,17 +46,17 @@
 
   function connect(opts) {
     opts = opts || {};
-    if (!opts.url) throw new Error('SyncSpace.connect: "url" is required');
+    if (!opts.url) throw new Error('Synapse.connect: "url" is required');
     if (!/^[A-Za-z0-9_-]{1,32}$/.test(opts.room || '')) {
-      throw new Error('SyncSpace.connect: "room" must be 1-32 characters (alphanumeric, -, _)');
+      throw new Error('Synapse.connect: "room" must be 1-32 alphanumeric characters, - or _');
     }
 
     var WS = opts.WebSocket || (typeof WebSocket !== 'undefined' ? WebSocket : null);
-    if (!WS) throw new Error('SyncSpace: No WebSocket implementation found');
+    if (!WS) throw new Error('Synapse: No WebSocket implementation found');
 
     var listeners = {};
-    var state = {}; // Current shared state map
-    var peers = {}; // id -> { id, name, color }
+    var state = {};
+    var peers = {};
     var myId = opts.clientId || (randomRoom() + randomRoom());
     var ws = null;
     var closedByUser = false;
@@ -68,7 +67,10 @@
     var lastCursorTime = 0;
 
     var api = {
-      status: 'connecting'
+      status: 'connecting',
+      notepadHistory: [],
+      counterHistory: [],
+      dbConnected: false
     };
 
     function emit(event) {
@@ -78,7 +80,7 @@
         try {
           fn.apply(null, args);
         } catch (err) {
-          console.error('[SyncSpace] Listener error for event "' + event + '":', err);
+          console.error('[Synapse] Listener error for event "' + event + '":', err);
         }
       });
     }
@@ -110,7 +112,6 @@
       var sock = (ws = new WS(opts.url));
       var isDropped = false;
 
-      // Handle hanging handshake
       var connectTimer = setTimeout(function () {
         if (sock.readyState !== 1) {
           try {
@@ -166,11 +167,14 @@
             myId = msg.id;
             setStatus('open');
 
-            // Synchronize state snapshot
             var previousState = state;
             state = msg.state || {};
 
-            // Fire state events for differences
+            api.notepadHistory = msg.notepadHistory || [];
+            api.counterHistory = msg.counterHistory || [];
+            api.dbConnected = !!msg.dbConnected;
+
+            // Trigger state diff events
             Object.keys(state).forEach(function (k) {
               if (JSON.stringify(previousState[k]) !== JSON.stringify(state[k])) {
                 emit('state', k, state[k], null);
@@ -182,20 +186,28 @@
               }
             });
 
-            // Update peer directory
             peers = {};
             (msg.peers || []).forEach(function (p) {
               peers[p.id] = p;
             });
 
-            emit('open', { reconnected: wasReconnect });
+            emit('open', {
+              reconnected: wasReconnect,
+              notepadHistory: api.notepadHistory,
+              counterHistory: api.counterHistory,
+              dbConnected: api.dbConnected
+            });
             emit('presence', getPeerList());
 
             // Flush offline write queue
             var queued = offlineQueue;
             offlineQueue = [];
             queued.forEach(function (item) {
-              api.set(item.key, item.value);
+              if (item.type === 'counter_action') {
+                api.counterAction(item.action, item.amount);
+              } else {
+                api.set(item.key, item.value, item.cursorPosition);
+              }
             });
 
             // Start heartbeat ping
@@ -213,6 +225,34 @@
               state[msg.key] = msg.value;
             }
             emit('state', msg.key, msg.value, msg.by);
+            break;
+          }
+
+          case 'notepad_version_added': {
+            if (msg.version) {
+              api.notepadHistory.unshift(msg.version);
+              if (api.notepadHistory.length > 100) api.notepadHistory.pop();
+              emit('notepad-version-added', msg.version, api.notepadHistory);
+            }
+            break;
+          }
+
+          case 'counter_action_added': {
+            if (msg.action) {
+              api.counterHistory.unshift(msg.action);
+              if (api.counterHistory.length > 100) api.counterHistory.pop();
+              emit('counter-action-added', msg.action, api.counterHistory);
+            }
+            break;
+          }
+
+          case 'quick_shout': {
+            emit('quick-shout', msg);
+            break;
+          }
+
+          case 'reaction': {
+            emit('reaction', msg.emoji, msg.from, msg.time);
             break;
           }
 
@@ -242,7 +282,6 @@
           }
 
           case 'pong': {
-            // Heartbeat ACK
             break;
           }
         }
@@ -252,7 +291,7 @@
       sock.onerror = function () {};
     }
 
-    // Public Room API
+    // Public Room Instance API
     api.on = function (event, fn) {
       if (typeof fn === 'function') {
         (listeners[event] = listeners[event] || []).push(fn);
@@ -280,27 +319,71 @@
     api.peers = getPeerList;
 
     api.me = function () {
-      return peers[myId] || { id: myId, name: opts.name || 'Guest', color: '#6366f1' };
+      return peers[myId] || { id: myId, name: opts.name || 'Guest', color: '#4f46e5' };
     };
 
-    api.set = function (key, value) {
-      // Optimistic local state update
+    api.set = function (key, value, cursorPosition) {
       if (value === undefined) {
         delete state[key];
       } else {
         state[key] = value;
       }
 
-      if (!sendRaw({ t: 'set', key: key, value: value })) {
-        offlineQueue.push({ key: key, value: value });
+      var payload = {
+        t: 'set',
+        key: key,
+        value: value,
+        cursorPosition: typeof cursorPosition === 'number' ? cursorPosition : null
+      };
+
+      if (!sendRaw(payload)) {
+        offlineQueue.push({ type: 'set', key: key, value: value, cursorPosition: cursorPosition });
       }
       return api;
     };
 
+    api.counterAction = function (action, amount) {
+      var act = action || 'inc';
+      var amt = typeof amount === 'number' ? amount : 1;
+      var payload = {
+        t: 'counter_action',
+        action: act,
+        amount: amt
+      };
+
+      if (!sendRaw(payload)) {
+        offlineQueue.push({ type: 'counter_action', action: act, amount: amt });
+      }
+      return api;
+    };
+
+    api.restoreVersion = function (versionId) {
+      return sendRaw({
+        t: 'restore_version',
+        versionId: versionId
+      });
+    };
+
+    api.quickShout = function (message) {
+      var text = String(message || '').trim().slice(0, 240);
+      if (!text) return false;
+      return sendRaw({
+        t: 'quick_shout',
+        message: text
+      });
+    };
+
+    api.sendReaction = function (emoji) {
+      var em = String(emoji || '🚀').slice(0, 8);
+      return sendRaw({
+        t: 'reaction',
+        emoji: em
+      });
+    };
+
     api.cursor = function (x, y) {
       var now = Date.now();
-      // Throttle cursor broadcast to ~30 updates/sec
-      if (now - lastCursorTime < 33) return;
+      if (now - lastCursorTime < 33) return; // ~30 fps max
       lastCursorTime = now;
       sendRaw({ t: 'cursor', x: x, y: y });
     };
@@ -316,7 +399,6 @@
       }
     };
 
-    // Helper for demo/testing: simulates network cut
     api.simulateDisconnect = function () {
       if (ws) {
         try {

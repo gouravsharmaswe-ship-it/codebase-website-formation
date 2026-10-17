@@ -3,1328 +3,1705 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SyncSpace — Multiplayer in 10 Lines</title>
-  <meta name="description" content="SyncSpace is an ultra-lightweight real-time multiplayer coordination library for shared state, live cursors, and online presence.">
-  
-  <!-- Modern Google Fonts -->
+  <title>Synapse — Advanced Real-Time Collaboration Workspace</title>
+  <meta name="description" content="Synapse v2: Real-time collaboration with live notepad, counter, kanban board, chat, file uploads, history replay, live cursors, and admin dashboard.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
+    /* =========================================================================
+       DESIGN TOKENS
+       ========================================================================= */
     :root {
-      --bg-base: #0a0e17;
-      --bg-card: rgba(18, 26, 43, 0.75);
-      --bg-card-hover: rgba(24, 34, 56, 0.85);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-color-focus: rgba(99, 102, 241, 0.5);
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.35);
-      --ok: #10b981;
-      --ok-glow: rgba(16, 185, 129, 0.3);
-      --warn: #f59e0b;
-      --warn-glow: rgba(245, 158, 11, 0.3);
-      --bad: #ef4444;
-      --bad-glow: rgba(239, 68, 68, 0.3);
-      --room-accent: #6366f1;
+      --bg-canvas:        #f8fafc;
+      --bg-surface:       #ffffff;
+      --bg-subtle:        #f1f5f9;
+      --border-subtle:    #e2e8f0;
+      --border-strong:    #cbd5e1;
+      --border-focus:     #4f46e5;
+      --text-primary:     #0f172a;
+      --text-secondary:   #475569;
+      --text-tertiary:    #94a3b8;
+      --primary:          #4f46e5;
+      --primary-hover:    #4338ca;
+      --primary-subtle:   #eef2ff;
+      --success:          #059669;
+      --success-subtle:   #ecfdf5;
+      --warning:          #d97706;
+      --warning-subtle:   #fffbeb;
+      --danger:           #dc2626;
+      --danger-subtle:    #fef2f2;
+      --purple:           #7c3aed;
+      --purple-subtle:    #f5f3ff;
+      --teal:             #0891b2;
+      --teal-subtle:      #ecfeff;
+      --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+      --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
+      --radius-sm:  6px;
+      --radius-md:  10px;
+      --radius-lg:  16px;
+      --radius-xl:  24px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg-base);
-      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: var(--bg-canvas);
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--text-primary);
       min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
-      background-image: 
-        radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-        radial-gradient(circle at 85% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 45%);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Ambient room glow */
-    .ambient-glow {
-      position: fixed;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 400px;
-      background: radial-gradient(circle, var(--room-accent) 0%, transparent 70%);
-      opacity: 0.18;
-      pointer-events: none;
-      z-index: 0;
-      transition: background 0.6s ease, opacity 0.4s ease;
-      filter: blur(80px);
-    }
+    button, input, textarea, select { font-family: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 
-    /* Header Navigation */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      background: rgba(10, 14, 23, 0.8);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border-color);
-      padding: 12px 24px;
-    }
-
-    .header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .brand-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
-      font-size: 18px;
-    }
-
-    .brand-text h1 {
-      font-size: 1.25rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand-badge {
-      font-size: 0.68rem;
-      font-weight: 600;
-      background: rgba(99, 102, 241, 0.18);
-      color: #818cf8;
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      padding: 2px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .controls-deck {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .room-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: var(--text-main);
-    }
-
-    .room-pill span {
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-    }
-
-    .user-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      padding: 4px 10px;
-      border-radius: 8px;
-    }
-
-    .user-color-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .user-input {
-      background: transparent;
-      border: none;
-      color: var(--text-main);
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 600;
-      width: 100px;
-      outline: none;
-    }
-
-    .user-input:focus {
-      border-bottom: 1px solid var(--accent);
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-      font-size: 0.84rem;
-      font-weight: 600;
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-main);
-      cursor: pointer;
-      transition: all 0.18s ease;
-      white-space: nowrap;
-    }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: translateY(-1px);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-      border-color: #6366f1;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-    }
-
-    .btn-outline-danger {
-      border-color: rgba(239, 68, 68, 0.3);
-      color: #f87171;
-    }
-    .btn-outline-danger:hover {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: #ef4444;
-    }
-
-    /* Status indicator */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--warn);
-      box-shadow: 0 0 10px var(--warn-glow);
-      transition: background 0.3s ease;
-    }
-
-    .status-dot.open {
-      background: var(--ok);
-      box-shadow: 0 0 12px var(--ok-glow);
-      animation: pulse-dot 2s infinite ease-in-out;
-    }
-
-    .status-dot.reconnecting, .status-dot.closed {
-      background: var(--bad);
-      box-shadow: 0 0 12px var(--bad-glow);
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(1.15); }
-    }
-
-    /* Main Container */
-    main {
-      position: relative;
-      z-index: 10;
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 24px 20px 48px;
-      display: grid;
-      gap: 20px;
-      grid-template-columns: 2.2fr 1fr;
-    }
-
-    @media (max-width: 960px) {
-      main { grid-template-columns: 1fr; }
-    }
-
-    /* Cards */
-    .card {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 22px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .card:hover {
-      border-color: rgba(255, 255, 255, 0.14);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .card-title {
-      font-size: 0.95rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-main);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .card-title svg {
-      width: 18px;
-      height: 18px;
-      color: var(--accent);
-    }
-
-    /* Collaborative Notepad */
-    .notepad-wrapper {
-      position: relative;
-      width: 100%;
-    }
-
-    textarea.notepad {
-      width: 100%;
-      min-height: 220px;
-      background: rgba(10, 14, 23, 0.65);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 16px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.92rem;
-      line-height: 1.6;
-      color: var(--text-main);
-      resize: vertical;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    textarea.notepad:focus {
-      border-color: var(--border-color-focus);
-      box-shadow: 0 0 0 2px var(--accent-glow);
-    }
-
-    .notepad-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 8px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-
-    .typing-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      color: var(--accent);
-      font-weight: 500;
-      min-height: 18px;
-    }
-
-    /* Shared Widget Deck */
-    .widgets-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-top: 20px;
-    }
-
-    @media (max-width: 680px) {
-      .widgets-grid { grid-template-columns: 1fr; }
-    }
-
-    .widget-box {
-      background: rgba(10, 14, 23, 0.45);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .widget-box h3 {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-    }
-
-    /* Counter Display */
-    .counter-display {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 3rem;
-      font-weight: 800;
-      text-align: center;
-      padding: 12px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      color: #fff;
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-      transition: transform 0.12s ease;
-    }
-
-    .counter-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-    }
-
-    /* Color Swatches */
-    .swatches-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .swatch-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-
-    .swatch-btn:hover {
-      transform: scale(1.12);
-    }
-
-    .swatch-btn.active {
-      border-color: #fff;
-      box-shadow: 0 0 14px rgba(255, 255, 255, 0.4);
-    }
-
-    /* Emoji Burst Pad */
-    .reactions-row {
-      display: flex;
-      gap: 8px;
-      justify-content: space-around;
-      background: rgba(255, 255, 255, 0.02);
-      padding: 8px;
-      border-radius: 10px;
-    }
-
-    .react-btn {
-      font-size: 1.4rem;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 8px;
-      transition: transform 0.12s ease;
-    }
-
-    .react-btn:hover {
-      transform: scale(1.3);
-    }
-    .react-btn:active {
-      transform: scale(0.9);
-    }
-
-    /* Shared Idea Cards / Tasks */
-    .tasks-deck {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 190px;
+    /* =========================================================================
+       ENTRY SCREEN
+       ========================================================================= */
+    #entry-screen {
+      position: fixed; inset: 0; z-index: 10000;
+      display: grid; place-items: center; padding: 24px;
+      background-color: #f1f5f9;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(99,102,241,0.12) 0%, transparent 35%),
+        radial-gradient(circle at 90% 80%, rgba(16,185,129,0.10) 0%, transparent 35%),
+        repeating-linear-gradient(45deg, rgba(203,213,225,0.25) 0, rgba(203,213,225,0.25) 1px, transparent 1px, transparent 16px);
       overflow-y: auto;
-      padding-right: 4px;
+    }
+    body.in-room #entry-screen { display: none; }
+
+    .entry-card {
+      width: min(100%, 460px);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: var(--radius-xl);
+      padding: 36px 32px;
+      box-shadow: 0 25px 50px -12px rgba(15,23,42,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+      animation: entryFadeUp 0.35s ease-out;
+    }
+    @keyframes entryFadeUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
     }
 
-    .task-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 0.86rem;
-      gap: 8px;
+    .brand-badge-row { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+    .brand-logo-icon {
+      width:40px; height:40px; border-radius:12px;
+      background: linear-gradient(135deg,#4f46e5 0%,#06b6d4 100%);
+      display:grid; place-items:center; color:#fff; font-weight:800; font-size:1.25rem;
+      box-shadow: 0 4px 12px rgba(79,70,229,0.3);
     }
-
-    .task-item.completed span {
-      text-decoration: line-through;
-      color: var(--text-dim);
+    .brand-title { font-size:1.35rem; font-weight:800; letter-spacing:-0.03em; }
+    .brand-pill {
+      font-size:0.7rem; font-weight:700; background:var(--primary-subtle); color:var(--primary);
+      padding:2px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.05em;
     }
+    .entry-headline { font-size:1.6rem; font-weight:800; letter-spacing:-0.03em; line-height:1.25; margin-bottom:8px; }
+    .entry-subhead  { font-size:0.92rem; color:var(--text-secondary); line-height:1.5; margin-bottom:28px; }
 
-    .task-toggle {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--ok);
-      cursor: pointer;
+    .form-group { display:grid; gap:6px; margin-bottom:18px; }
+    .form-label { font-size:0.82rem; font-weight:700; color:var(--text-secondary); }
+    .input-field {
+      width:100%; height:46px; padding:0 14px;
+      border:1px solid var(--border-strong); border-radius:var(--radius-md);
+      background:#fff; font-size:0.95rem; transition:all 0.15s ease;
     }
-
-    .task-del {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 0 4px;
+    .input-field:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(79,70,229,0.15); }
+    .room-input-row { display:flex; gap:8px; }
+    .btn-icon-subtle {
+      height:46px; padding:0 14px; border:1px solid var(--border-subtle);
+      background:var(--bg-subtle); border-radius:var(--radius-md);
+      font-size:0.85rem; font-weight:600; color:var(--text-secondary);
+      cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.15s ease; white-space:nowrap;
     }
-    .task-del:hover { color: var(--bad); }
-
-    .add-task-form {
-      display: flex;
-      gap: 8px;
-      margin-top: 6px;
+    .btn-icon-subtle:hover { background:#e2e8f0; color:var(--text-primary); }
+    .btn-enter-room {
+      width:100%; height:48px; border:none; border-radius:var(--radius-md);
+      background:linear-gradient(135deg,#4f46e5 0%,#4338ca 100%);
+      color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
+      box-shadow:0 4px 14px rgba(79,70,229,0.35); transition:all 0.15s ease;
+      margin-top:10px; display:flex; align-items:center; justify-content:center; gap:8px;
     }
+    .btn-enter-room:hover { background:linear-gradient(135deg,#4338ca 0%,#3730a3 100%); box-shadow:0 6px 20px rgba(79,70,229,0.45); transform:translateY(-1px); }
+    .entry-error { min-height:20px; font-size:0.8rem; color:var(--danger); margin-top:6px; }
 
-    .add-task-input {
-      flex: 1;
-      background: rgba(10, 14, 23, 0.6);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 6px 10px;
-      color: #fff;
-      font-size: 0.84rem;
-      outline: none;
+    /* =========================================================================
+       HEADER
+       ========================================================================= */
+    header.workspace-header {
+      position:sticky; top:0; z-index:50;
+      background:rgba(255,255,255,0.95); backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border-subtle); padding:10px 20px;
+      box-shadow:var(--shadow-sm);
     }
-    .add-task-input:focus { border-color: var(--accent); }
-
-    /* Aside: Online Presence */
-    .presence-card {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    .header-container { max-width:1500px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .header-left  { display:flex; align-items:center; gap:12px; }
+    .header-brand { display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--text-primary); }
+    .header-brand-icon { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,#4f46e5 0%,#06b6d4 100%); display:grid; place-items:center; color:#fff; font-weight:800; font-size:0.95rem; }
+    .header-brand-title { font-size:1.15rem; font-weight:800; letter-spacing:-0.02em; }
+    .room-badge-group { display:inline-flex; align-items:center; gap:8px; background:var(--bg-subtle); border:1px solid var(--border-subtle); padding:4px 10px; border-radius:var(--radius-sm); font-size:0.82rem; }
+    .room-code-tag { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--primary); }
+    .header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .pill-btn {
+      display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px;
+      border:1px solid var(--border-subtle); border-radius:var(--radius-sm);
+      background:#fff; font-size:0.8rem; font-weight:600; color:var(--text-secondary);
+      cursor:pointer; transition:all 0.15s ease;
     }
+    .pill-btn:hover { background:var(--bg-subtle); color:var(--text-primary); border-color:var(--border-strong); }
+    .user-pill { display:flex; align-items:center; gap:6px; padding:4px 10px; background:var(--bg-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:0.82rem; font-weight:600; }
+    .user-avatar-circle { width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:10px; font-weight:700; color:#fff; }
+    .status-indicator-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; background:var(--bg-subtle); border:1px solid var(--border-subtle); }
+    .pulse-dot { width:8px; height:8px; border-radius:50%; background:var(--warning); }
+    .pulse-dot.connected    { background:var(--success); box-shadow:0 0 0 3px rgba(5,150,105,0.2); }
+    .pulse-dot.reconnecting,
+    .pulse-dot.closed       { background:var(--danger);  box-shadow:0 0 0 3px rgba(220,38,38,0.2); }
+    .db-badge { display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; font-weight:700; padding:3px 8px; border-radius:999px; background:#f8fafc; border:1px solid var(--border-subtle); color:var(--text-tertiary); }
+    .db-badge.pg { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
 
-    .presence-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    /* TAB NAV */
+    .workspace-tabs {
+      display:flex; gap:0; border-bottom:1px solid var(--border-subtle);
+      background:rgba(255,255,255,0.97); backdrop-filter:blur(8px);
+      position:sticky; top:53px; z-index:40; overflow-x:auto;
     }
-
-    .presence-counter {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--ok);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.76rem;
-      font-weight: 700;
+    .tab-btn {
+      padding:10px 18px; border:none; background:transparent; font-size:0.85rem; font-weight:600;
+      color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent;
+      transition:all 0.15s ease; white-space:nowrap; display:flex; align-items:center; gap:6px;
     }
-
-    .peers-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    .tab-btn:hover { color:var(--text-primary); background:var(--bg-subtle); }
+    .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); background:var(--primary-subtle); }
+    .tab-badge {
+      background:var(--primary); color:#fff; font-size:0.65rem; font-weight:700;
+      padding:1px 5px; border-radius:999px; min-width:16px; text-align:center;
     }
+    .tab-badge.red { background:var(--danger); }
 
-    .peer-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 10px 14px;
-      animation: fadeIn 0.3s ease;
+    /* =========================================================================
+       WORKSPACE TABS CONTENT
+       ========================================================================= */
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    .workspace-layout {
+      max-width:1500px; margin:0 auto; padding:20px;
+      display:grid; grid-template-columns:2.1fr 1fr; gap:20px;
     }
+    @media (max-width:1100px) { .workspace-layout { grid-template-columns:1fr; } }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
+    /* =========================================================================
+       CARDS
+       ========================================================================= */
+    .card {
+      background:var(--bg-surface); border:1px solid var(--border-subtle);
+      border-radius:var(--radius-lg); box-shadow:var(--shadow-sm);
+      padding:20px 22px; margin-bottom:20px; transition:box-shadow 0.2s;
     }
+    .card:hover { box-shadow:var(--shadow-md); }
+    .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+    .card-title-group { display:flex; align-items:center; gap:8px; }
+    .card-title { font-size:1rem; font-weight:750; letter-spacing:-0.01em; }
+    .card-subtitle { font-size:0.8rem; color:var(--text-secondary); }
 
-    .peer-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 700;
-      font-size: 0.88rem;
-      flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    /* =========================================================================
+       NOTEPAD
+       ========================================================================= */
+    textarea.notepad-area {
+      width:100%; min-height:260px; padding:16px;
+      border:1px solid var(--border-strong); border-radius:var(--radius-md);
+      font-family:'JetBrains Mono',monospace; font-size:0.92rem; line-height:1.6;
+      background:#fafafa; resize:vertical; transition:border-color 0.15s, box-shadow 0.15s;
     }
+    textarea.notepad-area:focus { background:#fff; border-color:var(--primary); box-shadow:0 0 0 3px rgba(79,70,229,0.12); }
+    .notepad-footer { display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:0.78rem; color:var(--text-secondary); flex-wrap:wrap; gap:8px; }
+    .typing-status-pill { color:var(--primary); font-weight:600; min-height:16px; }
+    .auto-save-pill { display:inline-flex; align-items:center; gap:4px; color:var(--success); font-weight:600; }
 
-    .peer-info {
-      flex: 1;
-      min-width: 0;
+    /* =========================================================================
+       COUNTER
+       ========================================================================= */
+    .counter-hero { display:flex; flex-direction:column; align-items:center; padding:24px; background:var(--bg-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-md); margin-bottom:16px; }
+    .counter-value-display { font-family:'JetBrains Mono',monospace; font-size:3.5rem; font-weight:800; letter-spacing:-0.04em; line-height:1; margin-bottom:16px; }
+    .counter-buttons-row { display:flex; gap:10px; align-items:center; }
+    .btn-counter { height:40px; padding:0 18px; border-radius:var(--radius-md); font-size:0.9rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s; }
+    .btn-counter-primary { background:var(--primary); border:1px solid var(--primary); color:#fff; }
+    .btn-counter-primary:hover { background:var(--primary-hover); transform:translateY(-1px); }
+    .btn-counter-subtle { background:#fff; border:1px solid var(--border-strong); color:var(--text-primary); }
+    .btn-counter-subtle:hover { background:var(--bg-subtle); }
+    .history-feed-title { font-size:0.78rem; font-weight:750; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+    .counter-history-list { list-style:none; display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
+    .counter-history-item { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; border-radius:var(--radius-sm); background:#fff; border:1px solid var(--border-subtle); font-size:0.8rem; }
+    .action-badge { font-weight:700; padding:2px 6px; border-radius:4px; font-size:0.72rem; }
+    .action-badge.inc   { background:var(--success-subtle); color:var(--success); }
+    .action-badge.dec   { background:var(--danger-subtle);  color:var(--danger);  }
+    .action-badge.reset { background:var(--warning-subtle); color:var(--warning); }
+
+    /* =========================================================================
+       KANBAN BOARD
+       ========================================================================= */
+    #panel-kanban { padding:20px; max-width:1500px; margin:0 auto; }
+    .kanban-board { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    @media (max-width:780px) { .kanban-board { grid-template-columns:1fr; } }
+    .kanban-col {
+      background:#fff; border:1px solid var(--border-subtle); border-radius:var(--radius-lg);
+      padding:16px; display:flex; flex-direction:column; gap:10px; min-height:400px;
     }
-
-    .peer-name {
-      font-weight: 600;
-      font-size: 0.88rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .kanban-col-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+    .kanban-col-title { font-weight:750; font-size:0.9rem; display:flex; align-items:center; gap:8px; }
+    .kanban-count { background:var(--bg-subtle); border:1px solid var(--border-subtle); padding:1px 7px; border-radius:999px; font-size:0.72rem; font-weight:700; color:var(--text-secondary); }
+    .kanban-card {
+      background:var(--bg-subtle); border:1px solid var(--border-subtle);
+      border-radius:var(--radius-md); padding:12px 14px; cursor:grab; user-select:none;
+      transition:all 0.15s; position:relative;
     }
+    .kanban-card:active { cursor:grabbing; }
+    .kanban-card:hover  { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+    .kanban-card.dragging { opacity:0.5; }
+    .kanban-card-title { font-weight:600; font-size:0.88rem; margin-bottom:4px; }
+    .kanban-card-meta  { font-size:0.75rem; color:var(--text-tertiary); }
+    .kanban-card-del   { position:absolute; top:8px; right:8px; background:transparent; border:none; color:var(--text-tertiary); cursor:pointer; font-size:0.9rem; opacity:0; transition:opacity 0.15s; }
+    .kanban-card:hover .kanban-card-del { opacity:1; }
+    .kanban-card-del:hover { color:var(--danger); }
+    .kanban-drop-zone { min-height:60px; border:2px dashed transparent; border-radius:var(--radius-md); transition:all 0.15s; }
+    .kanban-drop-zone.over { border-color:var(--primary); background:var(--primary-subtle); }
+    .kanban-add-form { display:flex; gap:8px; margin-top:auto; }
+    .kanban-input { flex:1; height:36px; padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); font-size:0.84rem; }
+    .kanban-add-btn { height:36px; padding:0 14px; background:var(--primary); color:#fff; border:none; border-radius:var(--radius-sm); font-size:0.84rem; font-weight:600; cursor:pointer; }
 
-    .peer-badge-you {
-      font-size: 0.65rem;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: rgba(99, 102, 241, 0.25);
-      color: #818cf8;
-      font-weight: 700;
-      text-transform: uppercase;
+    /* =========================================================================
+       CHAT
+       ========================================================================= */
+    #panel-chat { padding:0; display:flex; flex-direction:column; height:calc(100vh - 108px); max-height:calc(100vh - 108px); }
+    .chat-messages {
+      flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:10px;
     }
-
-    .peer-status {
-      font-size: 0.72rem;
-      color: var(--ok);
-      display: flex;
-      align-items: center;
-      gap: 4px;
+    .chat-msg { display:flex; gap:10px; align-items:flex-start; }
+    .chat-msg.mine { flex-direction:row-reverse; }
+    .chat-avatar { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:700; font-size:0.82rem; flex-shrink:0; }
+    .chat-bubble-wrap { max-width:72%; display:flex; flex-direction:column; gap:3px; }
+    .chat-msg.mine .chat-bubble-wrap { align-items:flex-end; }
+    .chat-meta { font-size:0.72rem; color:var(--text-tertiary); display:flex; gap:8px; }
+    .chat-bubble {
+      padding:10px 14px; border-radius:14px; font-size:0.88rem; line-height:1.5;
+      background:var(--bg-subtle); border:1px solid var(--border-subtle); word-break:break-word;
+      position:relative; cursor:pointer;
     }
-
-    /* Integration Code Card */
-    .code-card {
-      margin-top: 10px;
-      background: rgba(10, 14, 23, 0.7);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      overflow: hidden;
+    .chat-msg.mine .chat-bubble { background:linear-gradient(135deg,#4f46e5,#4338ca); color:#fff; border:none; }
+    .chat-bubble:hover .chat-react-btn { display:flex; }
+    .chat-react-btn { display:none; position:absolute; top:-10px; right:10px; background:#fff; border:1px solid var(--border-strong); border-radius:999px; padding:2px 8px; gap:4px; box-shadow:var(--shadow-sm); cursor:pointer; font-size:0.8rem; }
+    .chat-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+    .chat-reaction-pill { background:#fff; border:1px solid var(--border-subtle); border-radius:999px; padding:2px 8px; font-size:0.75rem; cursor:pointer; }
+    .chat-reply-preview { padding:6px 10px; border-left:3px solid var(--primary); background:rgba(79,70,229,0.06); border-radius:0 6px 6px 0; font-size:0.78rem; color:var(--text-secondary); margin-bottom:6px; }
+    .chat-input-row {
+      padding:12px 16px; border-top:1px solid var(--border-subtle); background:#fff;
+      display:flex; gap:8px; align-items:flex-end;
     }
+    .chat-input-wrap { flex:1; display:flex; flex-direction:column; gap:4px; }
+    .chat-reply-bar { display:none; font-size:0.78rem; color:var(--primary); background:var(--primary-subtle); padding:4px 10px; border-radius:6px; display:flex; align-items:center; justify-content:space-between; }
+    .chat-textarea { width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-md); resize:none; min-height:40px; max-height:120px; font-size:0.88rem; line-height:1.4; }
+    .chat-send-btn { height:40px; padding:0 18px; background:var(--primary); color:#fff; border:none; border-radius:var(--radius-md); font-weight:700; cursor:pointer; }
+    .emoji-picker-bar { display:flex; gap:8px; padding:4px 0; }
+    .emoji-quick-btn { background:transparent; border:none; font-size:1.2rem; cursor:pointer; transition:transform 0.1s; }
+    .emoji-quick-btn:hover { transform:scale(1.3); }
 
-    .code-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: rgba(255, 255, 255, 0.03);
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-muted);
+    /* =========================================================================
+       FILE BOARD
+       ========================================================================= */
+    #panel-files { padding:20px; max-width:1500px; margin:0 auto; }
+    .file-upload-zone {
+      border:2px dashed var(--border-strong); border-radius:var(--radius-lg);
+      padding:40px; text-align:center; cursor:pointer; background:#fff;
+      transition:all 0.2s; margin-bottom:20px;
     }
-
-    pre.code-block {
-      padding: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.78rem;
-      line-height: 1.6;
-      color: #cbd5e1;
-      overflow-x: auto;
+    .file-upload-zone:hover, .file-upload-zone.drag-over { border-color:var(--primary); background:var(--primary-subtle); }
+    .file-upload-icon { font-size:2.5rem; margin-bottom:12px; }
+    .file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+    .file-card {
+      background:#fff; border:1px solid var(--border-subtle); border-radius:var(--radius-lg);
+      overflow:hidden; transition:all 0.15s; cursor:pointer;
     }
+    .file-card:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); }
+    .file-card-thumb { height:160px; background:var(--bg-subtle); display:grid; place-items:center; overflow:hidden; }
+    .file-card-thumb img { width:100%; height:100%; object-fit:cover; }
+    .file-card-thumb .file-icon { font-size:3rem; }
+    .file-card-body { padding:12px 14px; }
+    .file-card-name { font-weight:700; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
+    .file-card-meta { font-size:0.75rem; color:var(--text-tertiary); }
+    .upload-progress { height:3px; background:var(--primary); border-radius:999px; width:0%; transition:width 0.3s; }
 
-    pre.code-block .k { color: #f43f5e; } /* keyword */
-    pre.code-block .s { color: #34d399; } /* string */
-    pre.code-block .f { color: #60a5fa; } /* function */
-    pre.code-block .c { color: #64748b; } /* comment */
-
-    /* Live Remote Cursors */
-    .cursor-peer {
-      position: fixed;
-      pointer-events: none;
-      z-index: 9999;
-      top: 0;
-      left: 0;
-      will-change: transform;
-      transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1);
+    /* =========================================================================
+       HISTORY REPLAY
+       ========================================================================= */
+    #panel-history { padding:20px; max-width:1200px; margin:0 auto; }
+    .history-layout { display:grid; grid-template-columns:320px 1fr; gap:20px; }
+    @media (max-width:800px) { .history-layout { grid-template-columns:1fr; } }
+    .version-list { list-style:none; display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow-y:auto; }
+    .version-item {
+      padding:10px 14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+      cursor:pointer; background:#fff; transition:all 0.15s;
     }
-
-    .cursor-peer svg {
-      width: 20px;
-      height: 20px;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    .version-item:hover { background:var(--bg-subtle); border-color:var(--border-strong); }
+    .version-item.selected { border-color:var(--primary); background:var(--primary-subtle); }
+    .version-item-header { display:flex; justify-content:space-between; font-weight:700; font-size:0.85rem; margin-bottom:4px; }
+    .version-item-meta   { font-size:0.75rem; color:var(--text-secondary); }
+    .replay-pane { display:flex; flex-direction:column; gap:12px; }
+    .replay-preview {
+      flex:1; min-height:300px; font-family:'JetBrains Mono',monospace; font-size:0.88rem;
+      line-height:1.6; white-space:pre-wrap; word-break:break-word;
+      background:#fff; border:1px solid var(--border-subtle); border-radius:var(--radius-lg);
+      padding:16px; overflow-y:auto;
     }
+    .replay-controls { display:flex; align-items:center; gap:12px; }
+    .replay-slider { flex:1; accent-color:var(--primary); }
+    .replay-actions { display:flex; gap:8px; flex-wrap:wrap; }
 
-    .cursor-peer-label {
-      position: absolute;
-      top: 16px;
-      left: 14px;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #fff;
-      white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    }
+    /* =========================================================================
+       ADMIN DASHBOARD
+       ========================================================================= */
+    #panel-admin { padding:20px; max-width:1200px; margin:0 auto; }
+    .admin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+    .stat-card { background:#fff; border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:20px; }
+    .stat-value { font-size:2.2rem; font-weight:800; font-family:'JetBrains Mono',monospace; letter-spacing:-0.03em; }
+    .stat-label { font-size:0.8rem; color:var(--text-secondary); font-weight:600; margin-top:4px; }
+    .admin-users-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
+    .admin-users-table th { text-align:left; padding:8px 12px; border-bottom:2px solid var(--border-subtle); font-weight:700; color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; }
+    .admin-users-table td { padding:8px 12px; border-bottom:1px solid var(--border-subtle); }
+    .admin-users-table tr:hover td { background:var(--bg-subtle); }
+    .admin-refresh-btn { margin-bottom:16px; }
 
-    /* Floating Emoji Reactions */
-    .floating-reaction {
-      position: fixed;
-      pointer-events: none;
-      z-index: 999;
-      font-size: 2.2rem;
-      animation: floatUp 2.4s ease-out forwards;
-    }
+    /* =========================================================================
+       PRESENCE SIDEBAR
+       ========================================================================= */
+    .presence-roster { list-style:none; display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    .presence-user-row { display:flex; align-items:center; gap:10px; padding:7px 10px; background:var(--bg-subtle); border-radius:var(--radius-sm); border:1px solid var(--border-subtle); }
+    .presence-color-circle { width:26px; height:26px; border-radius:50%; color:#fff; display:grid; place-items:center; font-size:0.75rem; font-weight:700; flex-shrink:0; }
+    .presence-user-name { font-size:0.84rem; font-weight:600; flex:1; }
+    .you-tag { font-size:0.62rem; font-weight:700; padding:1px 5px; border-radius:3px; background:var(--primary-subtle); color:var(--primary); text-transform:uppercase; }
+    .reaction-bar { display:flex; gap:6px; justify-content:space-between; padding:8px; background:var(--bg-subtle); border-radius:var(--radius-md); }
+    .reaction-trigger-btn { font-size:1.25rem; background:transparent; border:none; cursor:pointer; padding:4px; border-radius:var(--radius-sm); transition:transform 0.12s; }
+    .reaction-trigger-btn:hover { transform:scale(1.3); }
+    .shout-stream { display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; margin-bottom:10px; }
+    .shout-message-bubble { padding:7px 10px; border-radius:var(--radius-sm); background:var(--bg-subtle); border:1px solid var(--border-subtle); font-size:0.82rem; }
+    .shout-sender { font-weight:700; margin-right:5px; }
+    .shout-form { display:flex; gap:6px; }
+    .shout-input { flex:1; height:36px; padding:0 10px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); font-size:0.84rem; }
+    .tasks-list { list-style:none; display:flex; flex-direction:column; gap:6px; margin-bottom:10px; max-height:180px; overflow-y:auto; }
+    .task-item-row { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--bg-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:0.84rem; }
+    .task-item-row.completed span { text-decoration:line-through; color:var(--text-tertiary); }
+    .task-checkbox { width:15px; height:15px; accent-color:var(--primary); cursor:pointer; }
+    .task-delete-btn { background:transparent; border:none; color:var(--text-tertiary); cursor:pointer; font-size:0.9rem; }
+    .task-delete-btn:hover { color:var(--danger); }
 
-    @keyframes floatUp {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(0.6);
-      }
-      50% {
-        transform: translate(calc((var(--drift, 0) * 80px)), -120px) scale(1.2);
-      }
-      100% {
-        opacity: 0;
-        transform: translate(calc((var(--drift, 0) * 160px)), -260px) scale(0.8);
-      }
+    /* =========================================================================
+       CURSORS & ANIMATIONS
+       ========================================================================= */
+    .synapse-cursor { position:fixed; pointer-events:none; z-index:8000; top:0; left:0; will-change:transform; transition:transform 0.08s cubic-bezier(0,0,0.2,1); }
+    .synapse-cursor svg { width:20px; height:20px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+    .synapse-cursor-badge { position:absolute; top:14px; left:12px; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; color:#fff; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+    .floating-emoji { position:fixed; pointer-events:none; z-index:8500; font-size:2.2rem; animation:floatBurst 2.2s ease-out forwards; }
+    @keyframes floatBurst {
+      0%   { opacity:1; transform:translate(0,0) scale(0.6); }
+      50%  { transform:translate(calc(var(--drift,0) * 80px),-140px) scale(1.2); }
+      100% { opacity:0; transform:translate(calc(var(--drift,0) * 160px),-280px) scale(0.8); }
     }
+    #toast-deck { position:fixed; bottom:24px; right:24px; z-index:11000; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+    .toast-pill {
+      background:#0f172a; color:#fff; padding:10px 18px; border-radius:var(--radius-md);
+      font-size:0.85rem; font-weight:600; box-shadow:var(--shadow-lg);
+      display:flex; align-items:center; gap:8px; animation:toastSlide 0.2s ease-out; pointer-events:auto;
+    }
+    .toast-pill.err { background:var(--danger); }
+    @keyframes toastSlide { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-    /* Toast Notification Center */
-    #toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-    }
+    /* File upload modal */
+    #file-modal { position:fixed; inset:0; z-index:9500; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); display:none; place-items:center; padding:20px; }
+    #file-modal.open { display:grid; }
+    .file-modal-card { background:#fff; border-radius:var(--radius-xl); padding:28px; width:min(100%,500px); box-shadow:var(--shadow-xl); }
 
-    .toast-msg {
-      background: rgba(18, 26, 43, 0.95);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 10px 18px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(10px);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      animation: toastIn 0.25s ease-out;
-      pointer-events: auto;
-    }
-
-    .toast-msg.error {
-      border-color: rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-    }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(12px) scale(0.95); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    /* Reaction emoji picker popover */
+    #react-picker { position:fixed; z-index:9000; background:#fff; border:1px solid var(--border-strong); border-radius:var(--radius-md); padding:8px 10px; box-shadow:var(--shadow-lg); display:none; gap:8px; flex-wrap:wrap; width:200px; }
+    #react-picker.open { display:flex; }
+    #react-picker button { background:transparent; border:none; font-size:1.3rem; cursor:pointer; }
+    #react-picker button:hover { transform:scale(1.2); }
   </style>
 </head>
 <body>
 
-  <!-- Ambient background glow reacting to room color -->
-  <div class="ambient-glow" id="ambientGlow"></div>
-
-  <!-- Header -->
-  <header>
-    <div class="header-inner">
-      <a href="#" class="brand">
-        <div class="brand-icon">⚡</div>
-        <div class="brand-text">
-          <h1>SyncSpace <span class="brand-badge">Multiplayer in 10 lines</span></h1>
+  <!-- =========================================================================
+       ROOM ENTRY SCREEN
+       ========================================================================= -->
+  <div id="entry-screen">
+    <div class="entry-card">
+      <div class="brand-badge-row">
+        <div class="brand-logo-icon">⚡</div>
+        <div class="brand-title">Synapse</div>
+        <span class="brand-pill">v2 · Advanced</span>
+      </div>
+      <h1 class="entry-headline">Welcome to Synapse</h1>
+      <p class="entry-subhead">Real-time collaboration with live notepad, kanban, chat, file sharing, history replay, and admin insights.</p>
+      <form id="entry-form">
+        <div class="form-group">
+          <label class="form-label" for="entry-name">Your Display Name</label>
+          <input type="text" id="entry-name" class="input-field" maxlength="28" required placeholder="e.g. Asha Sharma">
         </div>
-      </a>
+        <div class="form-group">
+          <label class="form-label" for="entry-room">Room Code</label>
+          <div class="room-input-row">
+            <input type="text" id="entry-room" class="input-field" maxlength="32" required placeholder="e.g. project-alpha">
+            <button type="button" id="btn-generate-code" class="btn-icon-subtle">🎲 New</button>
+          </div>
+        </div>
+        <div class="entry-error" id="entry-error" role="alert"></div>
+        <button type="submit" id="btn-enter" class="btn-enter-room">
+          <span>Enter room</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
 
-      <div class="controls-deck">
-        <!-- Room pill -->
-        <div class="room-pill" title="Current collaboration room">
+  <!-- =========================================================================
+       HEADER
+       ========================================================================= -->
+  <header class="workspace-header">
+    <div class="header-container">
+      <div class="header-left">
+        <a href="#" class="header-brand" id="nav-brand-home">
+          <div class="header-brand-icon">⚡</div>
+          <span class="header-brand-title">Synapse</span>
+        </a>
+        <div class="room-badge-group">
           <span>Room:</span>
-          <strong id="roomDisplay">...</strong>
+          <span class="room-code-tag" id="nav-room-code">...</span>
+          <button class="pill-btn" id="btn-copy-room" style="height:24px;padding:0 7px;font-size:0.72rem;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="copy-btn-label">Copy link</span>
+          </button>
         </div>
-
-        <!-- Name badge -->
-        <div class="user-pill" title="Click to rename yourself">
-          <div class="user-color-dot" id="myColorDot"></div>
-          <input type="text" id="nameInput" class="user-input" maxlength="24" title="Your display name">
+      </div>
+      <div class="header-right">
+        <div class="user-pill">
+          <div class="user-avatar-circle" id="nav-user-avatar" style="background:#4f46e5;">A</div>
+          <span id="nav-user-name">Guest</span>
+          <button class="pill-btn" id="btn-rename" style="height:22px;padding:0 5px;font-size:0.68rem;border:none;background:transparent;">Edit</button>
         </div>
-
-        <!-- Action buttons -->
-        <button id="copyBtn" class="btn" title="Copy shareable room link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          <span id="copyBtnText">Copy Link</span>
-        </button>
-
-        <button id="newRoomBtn" class="btn" title="Create a brand new room">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          New Room
-        </button>
-
-        <!-- Test Disconnect button -->
-        <button id="simDisconnectBtn" class="btn btn-outline-danger" title="Test automatic reconnection and state restore">
-          ⚡ Drop &amp; Reconnect
-        </button>
-
-        <!-- Connection status -->
-        <div class="status-badge">
-          <span class="status-dot" id="statusDot"></span>
-          <span id="statusLabel">Connecting...</span>
+        <div class="status-indicator-pill">
+          <span class="pulse-dot" id="nav-status-dot"></span>
+          <span id="nav-status-text">Connecting...</span>
         </div>
+        <div class="db-badge" id="nav-db-badge">💾 Ready</div>
+        <button class="pill-btn" id="btn-switch-room">Switch room</button>
+        <button class="pill-btn" id="btn-test-disconnect" style="color:var(--danger);">⚡ Drop</button>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Layout -->
-  <main>
-    <!-- Left Column: Collaborative Workspace -->
-    <section style="display: flex; flex-direction: column; gap: 20px;">
-      
-      <!-- Collaborative Notepad Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            Collaborative Live Notepad
+  <!-- =========================================================================
+       TAB NAVIGATION
+       ========================================================================= -->
+  <nav class="workspace-tabs" id="workspace-tabs">
+    <button class="tab-btn active" data-tab="workspace">📋 Workspace</button>
+    <button class="tab-btn" data-tab="kanban">📌 Kanban <span class="tab-badge" id="kanban-count">0</span></button>
+    <button class="tab-btn" data-tab="chat">💬 Chat <span class="tab-badge red" id="chat-unread" style="display:none">0</span></button>
+    <button class="tab-btn" data-tab="files">📎 Files <span class="tab-badge" id="files-count">0</span></button>
+    <button class="tab-btn" data-tab="history">🕐 History</button>
+    <button class="tab-btn" data-tab="admin">📊 Admin</button>
+  </nav>
+
+  <!-- =========================================================================
+       TAB: WORKSPACE (Notepad + Counter + Presence)
+       ========================================================================= -->
+  <div class="tab-panel active" id="panel-workspace">
+    <div class="workspace-layout">
+      <section>
+        <!-- Notepad -->
+        <article class="card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h2 class="card-title">Live Collaborative Notepad</h2>
+              <span class="typing-status-pill" id="notepad-typing-indicator"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="pill-btn" id="btn-open-history">
+                🕐 <span>History (<strong id="history-count">0</strong>)</span>
+              </button>
+            </div>
           </div>
-          <span class="typing-badge" id="typingStatus"></span>
-        </div>
+          <textarea id="live-notepad" class="notepad-area" placeholder="Type here… every keystroke syncs instantly. Version auto-saved after 2s of inactivity."></textarea>
+          <div class="notepad-footer">
+            <span id="notepad-stats">0 words · 0 chars</span>
+            <span class="auto-save-pill" id="notepad-save-status">✓ Auto-saves every 2s</span>
+          </div>
+        </article>
 
-        <div class="notepad-wrapper">
-          <textarea id="notepad" class="notepad" placeholder="Type here in real-time... Open this URL in multiple browser tabs or send to your hackathon teammates! Every keystroke syncs live."></textarea>
-        </div>
+        <!-- Counter -->
+        <article class="card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h2 class="card-title">Shared Room Counter</h2>
+              <span class="card-subtitle">Atomic PostgreSQL transactions · no race conditions</span>
+            </div>
+          </div>
+          <div class="counter-hero">
+            <div class="counter-value-display" id="counter-value">0</div>
+            <div class="counter-buttons-row">
+              <button class="btn-counter btn-counter-primary" id="btn-count-inc">+1 for Everyone</button>
+              <button class="btn-counter btn-counter-subtle" id="btn-count-dec">−1</button>
+              <button class="btn-counter btn-counter-subtle" id="btn-count-reset">Reset</button>
+            </div>
+          </div>
+          <div class="history-feed-title"><span>Recent Actions</span><span style="font-size:0.72rem;color:var(--text-tertiary);">Persisted · PostgreSQL</span></div>
+          <ul class="counter-history-list" id="counter-history-feed">
+            <li class="counter-history-item" style="color:var(--text-tertiary);justify-content:center;">No actions yet.</li>
+          </ul>
+        </article>
+      </section>
 
-        <div class="notepad-footer">
-          <span id="notepadStats">0 words · 0 characters</span>
-          <span>⚡ Synced automatically across all room peers</span>
+      <aside>
+        <!-- Presence -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Room Presence</h2>
+            <span class="status-indicator-pill" id="peer-count-pill" style="color:var(--success);">1 Online</span>
+          </div>
+          <ul class="presence-roster" id="presence-roster"></ul>
+          <div style="margin-top:12px;font-size:0.76rem;color:var(--text-secondary);border-top:1px solid var(--border-subtle);padding-top:8px;">
+            💡 <strong>Live Cursors:</strong> Move your mouse to stream cursor position to all peers in real time.
+          </div>
+        </article>
+
+        <!-- Reactions -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Reactions & Shouts</h2>
+          </div>
+          <div class="reaction-bar">
+            <button class="reaction-trigger-btn" data-emoji="🚀">🚀</button>
+            <button class="reaction-trigger-btn" data-emoji="🎉">🎉</button>
+            <button class="reaction-trigger-btn" data-emoji="🔥">🔥</button>
+            <button class="reaction-trigger-btn" data-emoji="💡">💡</button>
+            <button class="reaction-trigger-btn" data-emoji="👏">👏</button>
+            <button class="reaction-trigger-btn" data-emoji="❤️">❤️</button>
+          </div>
+          <div class="shout-stream" id="shout-stream">
+            <div style="font-size:0.76rem;color:var(--text-tertiary);text-align:center;padding:8px;">No shouts yet. Say hello!</div>
+          </div>
+          <form class="shout-form" id="shout-form">
+            <input type="text" id="shout-input" class="shout-input" placeholder="Quick shout…" maxlength="180">
+            <button type="submit" class="pill-btn" style="background:var(--primary);color:#fff;border:none;">Send</button>
+          </form>
+        </article>
+
+        <!-- Tasks -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Ideas & Tasks</h2>
+            <span class="card-subtitle">Shared checklist</span>
+          </div>
+          <ul class="tasks-list" id="tasks-list"></ul>
+          <form id="task-add-form" style="display:flex;gap:6px;">
+            <input type="text" id="task-input" class="shout-input" placeholder="Add task or idea…" maxlength="70">
+            <button type="submit" class="pill-btn">Add</button>
+          </form>
+        </article>
+      </aside>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TAB: KANBAN
+       ========================================================================= -->
+  <div class="tab-panel" id="panel-kanban">
+    <div style="max-width:1500px;margin:0 auto;padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <h2 style="font-size:1.2rem;font-weight:800;">Shared Kanban Board</h2>
+          <p style="font-size:0.85rem;color:var(--text-secondary);">Drag cards across columns. Changes sync to all participants instantly.</p>
         </div>
       </div>
-
-      <!-- Shared Widgets Grid -->
-      <div class="widgets-grid">
-        
-        <!-- Shared Counter & Ambient Color -->
-        <div class="widget-box">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Shared Room Counter</h3>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">Live Sync</span>
+      <div class="kanban-board">
+        <div class="kanban-col" id="kanban-col-todo" data-col="todo">
+          <div class="kanban-col-header">
+            <div class="kanban-col-title">
+              <span style="width:10px;height:10px;background:var(--warning);border-radius:50%;display:inline-block;"></span>
+              To Do <span class="kanban-count" id="kanban-count-todo">0</span>
+            </div>
           </div>
-
-          <div class="counter-display" id="counterBox">0</div>
-
-          <div class="counter-actions">
-            <button class="btn btn-primary" id="incBtn" style="flex: 1;">+1 for Everyone</button>
-            <button class="btn" id="decBtn">-1</button>
-            <button class="btn" id="resetBtn">Reset</button>
-          </div>
-
-          <div style="margin-top: 6px;">
-            <h3 style="margin-bottom: 8px;">Room Ambient Accent</h3>
-            <div class="swatches-row" id="swatchesContainer"></div>
-          </div>
+          <div class="kanban-drop-zone" id="drop-todo"></div>
+          <div id="kanban-cards-todo"></div>
+          <form class="kanban-add-form" data-col="todo">
+            <input class="kanban-input" placeholder="Add card…" maxlength="100">
+            <button class="kanban-add-btn" type="submit">+</button>
+          </form>
         </div>
-
-        <!-- Shared Reactions & Brainstorm Deck -->
-        <div class="widget-box">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Live Emoji Reactions</h3>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">Broadcast to room</span>
+        <div class="kanban-col" id="kanban-col-doing" data-col="doing">
+          <div class="kanban-col-header">
+            <div class="kanban-col-title">
+              <span style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block;"></span>
+              In Progress <span class="kanban-count" id="kanban-count-doing">0</span>
+            </div>
           </div>
-
-          <!-- Emoji burst buttons -->
-          <div class="reactions-row">
-            <button class="react-btn" data-emoji="🚀" title="Send Rocket">🚀</button>
-            <button class="react-btn" data-emoji="🔥" title="Send Fire">🔥</button>
-            <button class="react-btn" data-emoji="🎉" title="Send Party">🎉</button>
-            <button class="react-btn" data-emoji="💡" title="Send Idea">💡</button>
-            <button class="react-btn" data-emoji="❤️" title="Send Heart">❤️</button>
-          </div>
-
-          <div style="margin-top: 6px;">
-            <h3 style="margin-bottom: 6px;">Shared Ideas &amp; Tasks</h3>
-            <div class="tasks-deck" id="tasksList"></div>
-            <form class="add-task-form" id="addTaskForm">
-              <input type="text" id="taskInput" class="add-task-input" placeholder="Add shared idea..." maxlength="60">
-              <button type="submit" class="btn" style="padding: 6px 12px;">Add</button>
-            </form>
-          </div>
+          <div class="kanban-drop-zone" id="drop-doing"></div>
+          <div id="kanban-cards-doing"></div>
+          <form class="kanban-add-form" data-col="doing">
+            <input class="kanban-input" placeholder="Add card…" maxlength="100">
+            <button class="kanban-add-btn" type="submit">+</button>
+          </form>
         </div>
-
-      </div>
-
-    </section>
-
-    <!-- Right Column: Presence, Live Peers & Library Code -->
-    <aside style="display: flex; flex-direction: column; gap: 20px;">
-      
-      <!-- Online Presence Card -->
-      <div class="card presence-card">
-        <div class="presence-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Active Peers
+        <div class="kanban-col" id="kanban-col-done" data-col="done">
+          <div class="kanban-col-header">
+            <div class="kanban-col-title">
+              <span style="width:10px;height:10px;background:var(--success);border-radius:50%;display:inline-block;"></span>
+              Done <span class="kanban-count" id="kanban-count-done">0</span>
+            </div>
           </div>
-          <span class="presence-counter" id="peerCount">1 Online</span>
-        </div>
-
-        <ul class="peers-list" id="peersList"></ul>
-
-        <div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; border-top: 1px solid var(--border-color); padding-top: 12px;">
-          💡 <strong>Live Cursors:</strong> Move your mouse over this page. Other connected tabs will see your pointer and name tag move smoothly in real-time.
+          <div class="kanban-drop-zone" id="drop-done"></div>
+          <div id="kanban-cards-done"></div>
+          <form class="kanban-add-form" data-col="done">
+            <input class="kanban-input" placeholder="Add card…" maxlength="100">
+            <button class="kanban-add-btn" type="submit">+</button>
+          </form>
         </div>
       </div>
+    </div>
+  </div>
 
-      <!-- 10-Line Integration Code Box -->
-      <div class="code-card">
-        <div class="code-card-header">
-          <span>⚡ Multiplayer in 10 lines API</span>
-          <span style="color: var(--accent); font-family: monospace;">syncspace.js</span>
-        </div>
-        <pre class="code-block"><code><span class="c">// 1. Connect to room</span>
-<span class="k">const</span> room = <span class="f">SyncSpace.connect</span>({
-  url: <span class="s">'wss://your-server'</span>,
-  room: <span class="s">'hackathon'</span>,
-  name: <span class="s">'Alex'</span>
-});
-
-<span class="c">// 2. Listen to state changes</span>
-room.<span class="f">on</span>(<span class="s">'state'</span>, (k, v) => <span class="f">updateUI</span>(k, v));
-
-<span class="c">// 3. Sync live cursors</span>
-room.<span class="f">on</span>(<span class="s">'cursor'</span>, (id, x, y, peer) => <span class="f">drawCursor</span>(id, x, y, peer));
-document.<span class="f">onmousemove</span> = e => room.<span class="f">cursor</span>(e.clientX/innerWidth, e.clientY/innerHeight);
-
-<span class="c">// 4. Mutate shared state (synced!)</span>
-room.<span class="f">set</span>(<span class="s">'score'</span>, 42);</code></pre>
+  <!-- =========================================================================
+       TAB: CHAT
+       ========================================================================= -->
+  <div class="tab-panel" id="panel-chat">
+    <div class="chat-messages" id="chat-messages">
+      <div style="text-align:center;color:var(--text-tertiary);font-size:0.85rem;padding:24px;">
+        Chat history will appear here. Send your first message!
       </div>
+    </div>
+    <div class="chat-input-row">
+      <div class="chat-input-wrap">
+        <div class="emoji-picker-bar">
+          <button class="emoji-quick-btn" data-emoji="😊">😊</button>
+          <button class="emoji-quick-btn" data-emoji="👍">👍</button>
+          <button class="emoji-quick-btn" data-emoji="🎉">🎉</button>
+          <button class="emoji-quick-btn" data-emoji="🔥">🔥</button>
+          <button class="emoji-quick-btn" data-emoji="💡">💡</button>
+          <button class="emoji-quick-btn" data-emoji="😂">😂</button>
+        </div>
+        <div class="chat-reply-bar" id="chat-reply-bar" style="display:none;">
+          <span id="chat-reply-preview"></span>
+          <button id="btn-cancel-reply" style="background:none;border:none;cursor:pointer;color:var(--danger);">✕</button>
+        </div>
+        <textarea id="chat-textarea" class="chat-textarea" placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+      </div>
+      <button id="chat-send-btn" class="chat-send-btn">Send</button>
+    </div>
+  </div>
 
-    </aside>
-  </main>
+  <!-- =========================================================================
+       TAB: FILES
+       ========================================================================= -->
+  <div class="tab-panel" id="panel-files">
+    <div style="max-width:1500px;margin:0 auto;padding:20px;">
+      <div class="file-upload-zone" id="file-upload-zone">
+        <div class="file-upload-icon">📎</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:6px;">Drop files here or click to upload</div>
+        <div style="font-size:0.85rem;color:var(--text-secondary);">Images, PDFs, text files — max 2 MB per file. Shared instantly with the room.</div>
+        <div class="upload-progress" id="upload-progress" style="margin-top:16px;"></div>
+        <input type="file" id="file-input" style="display:none;" multiple accept="image/*,application/pdf,text/*">
+      </div>
+      <div class="file-grid" id="file-grid">
+        <div style="grid-column:1/-1;text-align:center;color:var(--text-tertiary);font-size:0.85rem;padding:40px;">
+          No files shared yet. Upload the first one!
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toast-container"></div>
+  <!-- =========================================================================
+       TAB: HISTORY REPLAY
+       ========================================================================= -->
+  <div class="tab-panel" id="panel-history">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div style="margin-bottom:20px;">
+        <h2 style="font-size:1.2rem;font-weight:800;">Notepad Version History</h2>
+        <p style="font-size:0.85rem;color:var(--text-secondary);">All auto-saved versions. Use the slider to replay. Restore creates a new version — history is never deleted.</p>
+      </div>
+      <div class="history-layout">
+        <div>
+          <ul class="version-list" id="version-items-list"></ul>
+        </div>
+        <div class="replay-pane">
+          <div class="replay-controls">
+            <button class="pill-btn" id="btn-replay-prev">◀ Prev</button>
+            <input type="range" class="replay-slider" id="replay-slider" min="0" max="0" value="0">
+            <button class="pill-btn" id="btn-replay-next">Next ▶</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px;">
+            <strong id="replay-version-label" style="font-size:0.85rem;">Select a version</strong>
+            <span id="replay-version-time" style="font-size:0.75rem;color:var(--text-tertiary);"></span>
+          </div>
+          <div class="replay-preview" id="replay-preview">Click a version on the left to preview its content.</div>
+          <div class="replay-actions">
+            <button class="btn-counter btn-counter-primary" id="btn-restore-version" style="display:none;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              Restore this version
+            </button>
+            <button class="pill-btn" id="btn-copy-version-text">📋 Copy text</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Scripts -->
+  <!-- =========================================================================
+       TAB: ADMIN
+       ========================================================================= -->
+  <div class="tab-panel" id="panel-admin">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <h2 style="font-size:1.2rem;font-weight:800;">Room Admin Dashboard</h2>
+          <p style="font-size:0.85rem;color:var(--text-secondary);">Real-time statistics and session data for this room.</p>
+        </div>
+        <button class="pill-btn admin-refresh-btn" id="btn-admin-refresh">🔄 Refresh</button>
+      </div>
+      <div class="admin-grid">
+        <div class="stat-card"><div class="stat-value" id="admin-stat-users">—</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card"><div class="stat-value" id="admin-stat-chat">—</div><div class="stat-label">Chat Messages</div></div>
+        <div class="stat-card"><div class="stat-value" id="admin-stat-versions">—</div><div class="stat-label">Notepad Versions</div></div>
+        <div class="stat-card"><div class="stat-value" id="admin-stat-actions">—</div><div class="stat-label">Counter Actions</div></div>
+        <div class="stat-card"><div class="stat-value" id="admin-stat-files">—</div><div class="stat-label">Files Shared</div></div>
+        <div class="stat-card"><div class="stat-value" id="admin-stat-online" style="color:var(--success);">—</div><div class="stat-label">Currently Online</div></div>
+      </div>
+      <div class="card" style="margin-bottom:0;">
+        <h3 style="font-weight:750;margin-bottom:14px;">Participant Sessions</h3>
+        <div style="overflow-x:auto;">
+          <table class="admin-users-table" id="admin-users-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Client ID</th>
+                <th>Actions</th>
+                <th>Characters</th>
+                <th>Joined</th>
+                <th>Last Seen</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:20px;">Click Refresh to load data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST DECK -->
+  <div id="toast-deck"></div>
+
+  <!-- Emoji reaction picker -->
+  <div id="react-picker">
+    <button data-emoji="👍">👍</button>
+    <button data-emoji="❤️">❤️</button>
+    <button data-emoji="😂">😂</button>
+    <button data-emoji="🚀">🚀</button>
+    <button data-emoji="🎉">🎉</button>
+    <button data-emoji="🔥">🔥</button>
+    <button data-emoji="👀">👀</button>
+    <button data-emoji="💯">💯</button>
+    <button data-emoji="😮">😮</button>
+    <button data-emoji="🙏">🙏</button>
+  </div>
+
   <script src="config.js"></script>
   <script src="syncspace.js"></script>
   <script>
-    // Pure integration using ONLY the public SyncSpace API!
-    (function () {
-      var $ = function (id) { return document.getElementById(id); };
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
 
-      // 1. Resolve room from URL query param, or generate clean random room
-      var params = new URLSearchParams(window.location.search);
-      var roomId = params.get('room');
-      if (!roomId || !/^[A-Za-z0-9_-]{1,32}$/.test(roomId)) {
-        roomId = SyncSpace.randomRoom();
-        var newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
-        window.history.replaceState({ path: newUrl }, '', newUrl);
-      }
-      $('roomDisplay').textContent = roomId;
+    // -------------------------------------------------------------------------
+    // STATE
+    // -------------------------------------------------------------------------
+    var urlParams      = new URLSearchParams(window.location.search);
+    var roomParam      = urlParams.get('room');
+    var savedName      = localStorage.getItem('synapse_display_name') || 'Asha';
+    var activeRoom     = null;
+    var myColor        = '#4f46e5';
+    var activeTab      = 'workspace';
+    var chatUnread     = 0;
+    var replyToMsg     = null;
+    var selectedVersion = null;
+    var allVersions    = [];
+    var dragItem       = null;
+    var dragFromCol    = null;
+    var reactTargetMsgId = null;
 
-      // 2. Resolve WebSocket Server URL
+    // -------------------------------------------------------------------------
+    // ENTRY SCREEN
+    // -------------------------------------------------------------------------
+    $('entry-name').value = savedName;
+    $('entry-room').value = (roomParam && /^[A-Za-z0-9_-]{1,32}$/.test(roomParam)) ? roomParam : Synapse.randomRoom();
+
+    $('btn-generate-code').onclick = function () {
+      $('entry-room').value = Synapse.randomRoom();
+    };
+
+    $('entry-form').onsubmit = function (e) {
+      e.preventDefault();
+      var displayName = $('entry-name').value.trim();
+      var roomCode    = $('entry-room').value.trim().replace(/\s+/g, '-').slice(0, 32);
+      if (!displayName) { $('entry-error').textContent = 'Please enter your display name.'; return; }
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(roomCode)) { $('entry-error').textContent = 'Room code: 1-32 chars, letters/numbers/- only.'; return; }
+      $('entry-error').textContent = '';
+      localStorage.setItem('synapse_display_name', displayName);
+      var newUrl = location.protocol + '//' + location.host + location.pathname + '?room=' + roomCode;
+      history.replaceState({}, '', newUrl);
+      enterWorkspace(roomCode, displayName);
+    };
+
+    function enterWorkspace(roomCode, displayName) {
+      document.body.classList.add('in-room');
+      $('nav-room-code').textContent = roomCode;
+      $('nav-user-name').textContent = displayName;
+      $('nav-user-avatar').textContent = displayName.charAt(0).toUpperCase();
+
       var wsUrl = window.SYNCSPACE_URL;
       if (!wsUrl) {
-        var proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        wsUrl = proto + (window.location.host || 'localhost:3000');
+        var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+        wsUrl = proto + (location.host || 'localhost:3000');
       }
 
-      // 3. Resolve user identity
-      var myName = localStorage.getItem('syncspace-user-name') || ('Hacker-' + Math.floor(Math.random() * 900 + 100));
-      $('nameInput').value = myName;
+      // Get JWT token then connect
+      var authUrl = (location.protocol === 'https:' ? 'https://' : 'http://') + (location.host || 'localhost:3000') + '/api/auth/token';
+      fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: displayName })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        var token = data.ok ? data.token : null;
+        if (data.clientId) {
+          $('nav-user-avatar').style.backgroundColor = data.color || '#4f46e5';
+          myColor = data.color || '#4f46e5';
+        }
 
-      // 4. Connect to SyncSpace room
-      var room = SyncSpace.connect({
-        url: wsUrl,
-        room: roomId,
-        name: myName
+        activeRoom = Synapse.connect({ url: wsUrl, room: roomCode, name: displayName, token: token });
+        setupRoomListeners(activeRoom, roomCode);
+      }).catch(function () {
+        // Fallback if auth endpoint unavailable
+        activeRoom = Synapse.connect({ url: wsUrl, room: roomCode, name: displayName });
+        setupRoomListeners(activeRoom, roomCode);
       });
+    }
 
-      // Ambient theme swatches
-      var SWATCH_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
-      var swatchesEl = $('swatchesContainer');
-      SWATCH_COLORS.forEach(function (c) {
-        var btn = document.createElement('button');
-        btn.className = 'swatch-btn';
-        btn.dataset.color = c;
-        btn.style.backgroundColor = c;
-        btn.onclick = function () {
-          room.set('room_color', c);
-          applyRoomColor(c);
-        };
-        swatchesEl.appendChild(btn);
-      });
-
-      function applyRoomColor(color) {
-        var c = color || SWATCH_COLORS[0];
-        document.documentElement.style.setProperty('--room-accent', c);
-        $('ambientGlow').style.background = 'radial-gradient(circle, ' + c + ' 0%, transparent 70%)';
-        document.querySelectorAll('.swatch-btn').forEach(function (b) {
-          b.classList.toggle('active', b.dataset.color === c);
-        });
+    // -------------------------------------------------------------------------
+    // ROOM LISTENERS
+    // -------------------------------------------------------------------------
+    function setupRoomListeners(room, roomCode) {
+      function updateStatus(text, dotClass) {
+        $('nav-status-text').textContent = text;
+        $('nav-status-dot').className = 'pulse-dot ' + (dotClass || '');
       }
 
-      // Render all shared states
-      function renderState(key) {
-        // Counter
-        if (!key || key === 'counter') {
-          var count = room.get('counter') || 0;
-          $('counterBox').textContent = count;
-        }
-
-        // Room color
-        if (!key || key === 'room_color') {
-          applyRoomColor(room.get('room_color'));
-        }
-
-        // Notepad
-        if (!key || key === 'pad') {
-          var padText = room.get('pad') || '';
-          var padEl = $('notepad');
-          if (document.activeElement !== padEl && padEl.value !== padText) {
-            var start = padEl.selectionStart;
-            var end = padEl.selectionEnd;
-            padEl.value = padText;
-            try { padEl.setSelectionRange(start, end); } catch (e) {}
-          }
-          updateNotepadStats(padEl.value);
-        }
-
-        // Shared Tasks / Ideas
-        if (!key || key === 'tasks') {
-          renderTasks(room.get('tasks') || []);
-        }
-      }
-
-      function updateNotepadStats(text) {
-        var words = text.trim() ? text.trim().split(/\s+/).length : 0;
-        $('notepadStats').textContent = words + ' words · ' + text.length + ' characters';
-      }
-
-      // Notepad user input
-      var typingTimer = null;
-      $('notepad').addEventListener('input', function () {
-        var val = $('notepad').value;
-        room.set('pad', val);
-        updateNotepadStats(val);
-
-        // Broadcast typing signal
-        room.set('typing_' + room.me().id, { name: room.me().name, t: Date.now() });
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(function () {
-          room.set('typing_' + room.me().id, undefined);
-        }, 1200);
-      });
-
-      // Counter button actions
-      $('incBtn').onclick = function () {
-        room.set('counter', (room.get('counter') || 0) + 1);
-        renderState('counter');
-      };
-
-      $('decBtn').onclick = function () {
-        room.set('counter', (room.get('counter') || 0) - 1);
-        renderState('counter');
-      };
-
-      $('resetBtn').onclick = function () {
-        room.set('counter', 0);
-        renderState('counter');
-      };
-
-      // Reactions / Emoji Spawner
-      document.querySelectorAll('.react-btn').forEach(function (btn) {
-        btn.onclick = function () {
-          var emoji = btn.dataset.emoji;
-          // Set reaction with unique timestamp to trigger across all peers
-          room.set('reaction', { emoji: emoji, t: Date.now(), from: room.me().name });
-          spawnFloatingEmoji(emoji);
-        };
-      });
-
-      function spawnFloatingEmoji(emoji) {
-        var el = document.createElement('div');
-        el.className = 'floating-reaction';
-        el.textContent = emoji;
-        el.style.left = (Math.random() * 70 + 15) + 'vw';
-        el.style.bottom = '80px';
-        el.style.setProperty('--drift', (Math.random() - 0.5).toString());
-        document.body.appendChild(el);
-        setTimeout(function () { el.remove(); }, 2400);
-      }
-
-      // Shared Tasks / Ideas deck
-      function renderTasks(tasks) {
-        var listEl = $('tasksList');
-        listEl.innerHTML = '';
-        if (!tasks || tasks.length === 0) {
-          listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--text-dim); text-align:center; padding:12px;">No shared ideas yet. Add one below!</div>';
-          return;
-        }
-
-        tasks.forEach(function (task, idx) {
-          var item = document.createElement('div');
-          item.className = 'task-item' + (task.done ? ' completed' : '');
-          
-          var check = document.createElement('input');
-          check.type = 'checkbox';
-          check.className = 'task-toggle';
-          check.checked = !!task.done;
-          check.onchange = function () {
-            var curr = (room.get('tasks') || []).slice();
-            if (curr[idx]) {
-              curr[idx].done = check.checked;
-              room.set('tasks', curr);
-            }
-          };
-
-          var title = document.createElement('span');
-          title.textContent = task.text;
-          title.style.flex = '1';
-
-          var del = document.createElement('button');
-          del.className = 'task-del';
-          del.innerHTML = '&times;';
-          del.title = 'Delete item';
-          del.onclick = function () {
-            var curr = (room.get('tasks') || []).slice();
-            curr.splice(idx, 1);
-            room.set('tasks', curr);
-          };
-
-          item.appendChild(check);
-          item.appendChild(title);
-          item.appendChild(del);
-          listEl.appendChild(item);
-        });
-      }
-
-      $('addTaskForm').onsubmit = function (e) {
-        e.preventDefault();
-        var input = $('taskInput');
-        var text = input.value.trim();
-        if (!text) return;
-        var curr = (room.get('tasks') || []).slice();
-        curr.push({ text: text, done: false, id: Date.now() });
-        room.set('tasks', curr);
-        input.value = '';
-      };
-
-      // Header controls
-      $('nameInput').onchange = function () {
-        var newName = $('nameInput').value.trim() || 'Guest';
-        localStorage.setItem('syncspace-user-name', newName);
-        window.location.reload();
-      };
-
-      $('copyBtn').onclick = function () {
-        var textToCopy = window.location.href;
-        navigator.clipboard.writeText(textToCopy).then(function () {
-          $('copyBtnText').textContent = 'Copied! ✓';
-          showToast('Shareable room link copied to clipboard!');
-          setTimeout(function () {
-            $('copyBtnText').textContent = 'Copy Link';
-          }, 2000);
-        }).catch(function () {
-          showToast('Could not copy link automatically. Please copy the URL bar.');
-        });
-      };
-
-      $('newRoomBtn').onclick = function () {
-        window.location.search = '?room=' + SyncSpace.randomRoom();
-      };
-
-      // Test Disconnect button
-      $('simDisconnectBtn').onclick = function () {
-        showToast('⚡ Simulating network cut! Watching reconnection...');
-        room.simulateDisconnect();
-      };
-
-      // Connection Status
-      function updateConnectionUI(statusText, dotClass) {
-        $('statusLabel').textContent = statusText;
-        $('statusDot').className = 'status-dot ' + dotClass;
-      }
-
-      // SyncSpace Event Listeners
       room.on('open', function (info) {
-        var myPeer = room.me();
-        $('myColorDot').style.backgroundColor = myPeer.color || '#6366f1';
-        updateConnectionUI(info.reconnected ? 'Reconnected' : 'Connected', 'open');
-        showToast(info.reconnected ? '⚡ Connection restored! Latest room state synced.' : 'Connected to room ' + roomId);
-        renderState();
+        updateStatus(info.reconnected ? 'Reconnected' : 'Connected', 'connected');
+        showToast(info.reconnected ? '⚡ Reconnected!' : '✅ Joined room ' + roomCode);
+
+        if (info.dbConnected) { $('nav-db-badge').textContent = '💾 PostgreSQL'; $('nav-db-badge').classList.add('pg'); }
+        else                  { $('nav-db-badge').textContent = '💾 Memory'; $('nav-db-badge').classList.remove('pg'); }
+
+        if (info.myColor) { myColor = info.myColor; $('nav-user-avatar').style.backgroundColor = myColor; }
+
+        // Render all initial state
+        renderNotepad(room.get('pad'));
+        renderCounter(room.get('counter'));
+        renderTasks(room.get('tasks'));
+        renderKanban(room.get('kanban'));
+        renderHistoryCount(room.notepadHistory ? room.notepadHistory.length : 0);
+        renderCounterHistory(room.counterHistory || []);
+
+        // Chat history
+        if (info.chatHistory && info.chatHistory.length) {
+          renderChatHistory(info.chatHistory);
+        }
+
+        // File board
+        if (info.fileBoard && info.fileBoard.length) {
+          renderFileMetas(info.fileBoard);
+        }
       });
 
-      room.on('reconnecting', function (attempt, delay) {
-        updateConnectionUI('Reconnecting (#' + attempt + ')...', 'reconnecting');
+      room.on('reconnecting', function (attempt) { updateStatus('Reconnecting (#' + attempt + ')…', 'reconnecting'); });
+      room.on('close', function () { updateStatus('Disconnected', 'closed'); });
+      room.on('error', function (err) { showToast('Error: ' + err.message, true); });
+
+      room.on('state', function (key, value, byId) {
+        if (key === 'pad')     renderNotepad(value);
+        if (key === 'counter') renderCounter(value);
+        if (key === 'tasks')   renderTasks(value);
+        if (key === 'kanban')  renderKanban(value);
       });
 
-      room.on('close', function () {
-        updateConnectionUI('Disconnected', 'closed');
+      room.on('notepad-version-added', function (version, fullList) {
+        allVersions = fullList || [];
+        renderHistoryCount(allVersions.length);
+        $('notepad-save-status').textContent = '✓ Saved v' + version.id;
+        setTimeout(function () { $('notepad-save-status').textContent = '✓ Auto-saves every 2s'; }, 3500);
+        if (activeTab === 'history') renderVersionList(allVersions);
       });
 
-      room.on('error', function (err) {
-        showToast('Error: ' + err.message, true);
+      room.on('counter-action-added', function (action, fullList) { renderCounterHistory(fullList); });
+      room.on('quick-shout', function (shout) { appendShout(shout); });
+      room.on('reaction',    function (emoji, from) { spawnEmojiBurst(emoji); });
+
+      // Chat
+      room.on('chat', function (message) {
+        appendChatMessage(message, false);
+        if (activeTab !== 'chat') {
+          chatUnread++;
+          $('chat-unread').textContent = chatUnread;
+          $('chat-unread').style.display = 'inline';
+        }
+      });
+
+      // Chat reaction
+      room.on('chat_react', function (data) {
+        updateChatReaction(data.messageId, data.emoji, data.clientId);
+      });
+
+      // File
+      room.on('file_added', function (file) {
+        appendFileMeta(file);
+        var fc = parseInt($('files-count').textContent || '0', 10);
+        $('files-count').textContent = fc + 1;
+        if (activeTab !== 'files') showToast('📎 ' + file.display_name + ' shared a file');
       });
 
       // Presence
       room.on('presence', function (peers) {
-        $('peerCount').textContent = peers.length + ' Online';
-        var listEl = $('peersList');
+        $('peer-count-pill').textContent = peers.length + ' Online';
+        var listEl = $('presence-roster');
         listEl.innerHTML = '';
         var meId = room.me().id;
-
         peers.forEach(function (p) {
-          var li = document.createElement('li');
-          li.className = 'peer-item';
-
+          var li   = document.createElement('li');
+          li.className = 'presence-user-row';
           var av = document.createElement('div');
-          av.className = 'peer-avatar';
-          av.style.backgroundColor = p.color || '#6366f1';
+          av.className = 'presence-color-circle';
+          av.style.backgroundColor = p.color || '#4f46e5';
           av.textContent = (p.name || 'G').charAt(0).toUpperCase();
-
-          var info = document.createElement('div');
-          info.className = 'peer-info';
-
-          var nameDiv = document.createElement('div');
-          nameDiv.className = 'peer-name';
-          nameDiv.textContent = p.name;
-          if (p.id === meId) {
-            var youBadge = document.createElement('span');
-            youBadge.className = 'peer-badge-you';
-            youBadge.textContent = 'YOU';
-            nameDiv.appendChild(youBadge);
-          }
-
-          var statDiv = document.createElement('div');
-          statDiv.className = 'peer-status';
-          statDiv.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span> Active in room';
-
-          info.appendChild(nameDiv);
-          info.appendChild(statDiv);
-          li.appendChild(av);
-          li.appendChild(info);
+          var nameSpan = document.createElement('span');
+          nameSpan.className = 'presence-user-name';
+          nameSpan.textContent = p.name;
+          li.appendChild(av); li.appendChild(nameSpan);
+          if (p.id === meId) { var tag = document.createElement('span'); tag.className = 'you-tag'; tag.textContent = 'YOU'; li.appendChild(tag); }
           listEl.appendChild(li);
         });
-
-        // Prune cursors of peers who have left
-        document.querySelectorAll('.cursor-peer').forEach(function (cursorEl) {
-          var cid = cursorEl.dataset.peerId;
-          if (!peers.some(function (p) { return p.id === cid; })) {
-            cursorEl.remove();
-          }
+        // Remove disconnected cursors
+        document.querySelectorAll('.synapse-cursor').forEach(function (el) {
+          if (!peers.some(function (p) { return p.id === el.dataset.peerId; })) el.remove();
         });
+        // Update admin stat
+        $('admin-stat-online').textContent = peers.length;
       });
 
-      room.on('peer-join', function (peer) {
-        if (peer.id !== room.me().id) {
-          showToast('👋 ' + peer.name + ' joined the room');
-        }
-      });
+      room.on('peer-join',  function (peer) { if (peer.id !== room.me().id) showToast('👋 ' + peer.name + ' joined'); });
+      room.on('peer-leave', function (id, departed) { if (departed) showToast('👋 ' + departed.name + ' left'); });
 
-      room.on('peer-leave', function (id, departed) {
-        if (departed) {
-          showToast('👋 ' + departed.name + ' left the room');
-        }
-      });
-
-      // State updates
-      room.on('state', function (key, val, byId) {
-        if (key === 'reaction' && val) {
-          if (byId !== room.me().id) {
-            spawnFloatingEmoji(val.emoji);
-          }
-          return;
-        }
-
-        if (key && key.startsWith('typing_')) {
-          var typist = val ? val.name : null;
-          $('typingStatus').textContent = typist && byId !== room.me().id ? ('✏️ ' + typist + ' is typing...') : '';
-          return;
-        }
-
-        renderState(key);
-      });
-
-      // Live Cursors
+      // Live cursors
       document.addEventListener('mousemove', function (e) {
-        // Send normalized 0.0 - 1.0 fractional coordinates
-        room.cursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+        if (activeRoom) activeRoom.cursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
       });
 
       room.on('cursor', function (id, x, y, peer) {
-        var cursorEl = document.querySelector('.cursor-peer[data-peer-id="' + id + '"]');
-        if (!cursorEl) {
-          cursorEl = document.createElement('div');
-          cursorEl.className = 'cursor-peer';
-          cursorEl.dataset.peerId = id;
-          
-          var pColor = peer ? peer.color : '#818cf8';
-          var pName = peer ? peer.name : 'Peer';
-
-          cursorEl.innerHTML = 
-            '<svg viewBox="0 0 24 24" fill="' + pColor + '" stroke="#ffffff" stroke-width="1.2">' +
-              '<path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35z"/>' +
-            '</svg>' +
-            '<div class="cursor-peer-label" style="background-color:' + pColor + '">' + pName + '</div>';
-
-          document.body.appendChild(cursorEl);
+        var curEl = document.querySelector('.synapse-cursor[data-peer-id="' + id + '"]');
+        if (!curEl) {
+          curEl = document.createElement('div');
+          curEl.className = 'synapse-cursor';
+          curEl.dataset.peerId = id;
+          var col  = peer ? peer.color : '#4f46e5';
+          var name = peer ? peer.name  : 'Peer';
+          curEl.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="' + col + '" stroke="#fff" stroke-width="1.2"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35z"/></svg>' +
+            '<div class="synapse-cursor-badge" style="background:' + col + '">' + name + '</div>';
+          document.body.appendChild(curEl);
         }
-
-        var px = x * window.innerWidth;
-        var py = y * window.innerHeight;
-        cursorEl.style.transform = 'translate(' + px + 'px, ' + py + 'px)';
+        curEl.style.transform = 'translate(' + (x * window.innerWidth) + 'px,' + (y * window.innerHeight) + 'px)';
       });
+    }
 
-      // Toast notification helper
-      function showToast(msg, isError) {
-        var container = $('toast-container');
-        var toast = document.createElement('div');
-        toast.className = 'toast-msg' + (isError ? ' error' : '');
-        toast.textContent = msg;
-        container.appendChild(toast);
-        setTimeout(function () {
-          toast.style.transition = 'opacity 0.3s, transform 0.3s';
-          toast.style.opacity = '0';
-          toast.style.transform = 'translateY(10px)';
-          setTimeout(function () { toast.remove(); }, 300);
-        }, 3500);
+    // -------------------------------------------------------------------------
+    // TAB SWITCHING
+    // -------------------------------------------------------------------------
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        $('panel-' + tab).classList.add('active');
+        activeTab = tab;
+        if (tab === 'chat') {
+          chatUnread = 0;
+          $('chat-unread').style.display = 'none';
+          scrollChatToBottom();
+        }
+        if (tab === 'history' && activeRoom) {
+          allVersions = activeRoom.notepadHistory || [];
+          renderVersionList(allVersions);
+        }
+        if (tab === 'admin') loadAdminStats();
+      };
+    });
+
+    $('btn-open-history').onclick = function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      document.querySelector('[data-tab="history"]').classList.add('active');
+      $('panel-history').classList.add('active');
+      activeTab = 'history';
+      if (activeRoom) { allVersions = activeRoom.notepadHistory || []; renderVersionList(allVersions); }
+    };
+
+    // -------------------------------------------------------------------------
+    // NOTEPAD
+    // -------------------------------------------------------------------------
+    var padEl = $('live-notepad');
+    var typingTimer = null;
+
+    padEl.addEventListener('input', function () {
+      if (!activeRoom) return;
+      activeRoom.set('pad', padEl.value, padEl.selectionStart);
+      updateNotepadStats(padEl.value);
+      $('notepad-save-status').textContent = '⏳ Saving in 2s…';
+      activeRoom.set('typing_' + activeRoom.me().id, { name: activeRoom.me().name, t: Date.now() });
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(function () { activeRoom.set('typing_' + activeRoom.me().id, undefined); }, 1500);
+    });
+
+    function renderNotepad(text) {
+      var str = text || '';
+      if (document.activeElement !== padEl && padEl.value !== str) {
+        var s = padEl.selectionStart; var e = padEl.selectionEnd;
+        padEl.value = str;
+        try { padEl.setSelectionRange(s, e); } catch {}
+      }
+      updateNotepadStats(str);
+    }
+    function updateNotepadStats(text) {
+      var words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      $('notepad-stats').textContent = words + ' words · ' + text.length + ' chars';
+    }
+
+    // -------------------------------------------------------------------------
+    // COUNTER
+    // -------------------------------------------------------------------------
+    function renderCounter(val) { $('counter-value').textContent = Number(val) || 0; }
+    $('btn-count-inc').onclick   = function () { if (activeRoom) activeRoom.counterAction('inc', 1); };
+    $('btn-count-dec').onclick   = function () { if (activeRoom) activeRoom.counterAction('dec', 1); };
+    $('btn-count-reset').onclick = function () { if (activeRoom) activeRoom.counterAction('reset', 0); };
+
+    function renderCounterHistory(actions) {
+      var listEl = $('counter-history-feed');
+      listEl.innerHTML = '';
+      if (!actions || !actions.length) {
+        listEl.innerHTML = '<li class="counter-history-item" style="color:var(--text-tertiary);justify-content:center;">No actions yet.</li>';
+        return;
+      }
+      actions.slice(0, 20).forEach(function (act) {
+        var li = document.createElement('li');
+        li.className = 'counter-history-item';
+        li.innerHTML = '<div style="display:flex;align-items:center;gap:6px;"><span class="action-badge ' + (act.action_type || 'inc') + '">' + (act.action_type === 'inc' ? '+1' : act.action_type === 'dec' ? '-1' : 'Reset') + '</span><span style="font-weight:600;">' + esc(act.display_name) + '</span></div>' +
+          '<div style="display:flex;gap:8px;align-items:center;"><span style="font-family:monospace;font-weight:700;">→ ' + act.resulting_value + '</span><span style="color:var(--text-tertiary);font-size:0.72rem;">' + relTime(act.created_at) + '</span></div>';
+        listEl.appendChild(li);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // KANBAN
+    // -------------------------------------------------------------------------
+    var COLS = ['todo', 'doing', 'done'];
+
+    function renderKanban(kanban) {
+      var board = kanban || { todo: [], doing: [], done: [] };
+      var total = 0;
+      COLS.forEach(function (col) {
+        var cards = board[col] || [];
+        total += cards.length;
+        $('kanban-count-' + col).textContent = cards.length;
+        var container = $('kanban-cards-' + col);
+        container.innerHTML = '';
+        cards.forEach(function (card, idx) {
+          var div = document.createElement('div');
+          div.className = 'kanban-card';
+          div.draggable = true;
+          div.dataset.col = col;
+          div.dataset.idx = idx;
+          div.dataset.id  = card.id;
+          div.innerHTML = '<div class="kanban-card-title">' + esc(card.title) + '</div>' +
+            '<div class="kanban-card-meta">Added by ' + esc(card.by || 'You') + ' · ' + relTime(card.at) + '</div>' +
+            '<button class="kanban-card-del" title="Delete card" data-col="' + col + '" data-id="' + card.id + '">✕</button>';
+          div.addEventListener('dragstart', function (e) {
+            dragItem   = { id: card.id, col: col, idx: idx };
+            dragFromCol = col;
+            div.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          div.addEventListener('dragend', function () { div.classList.remove('dragging'); });
+          div.querySelector('.kanban-card-del').addEventListener('click', function (e) {
+            e.stopPropagation();
+            deleteKanbanCard(col, card.id);
+          });
+          container.appendChild(div);
+        });
+
+        // Drop zone
+        var dropZone = $('drop-' + col);
+        dropZone.ondragover  = function (e) { e.preventDefault(); dropZone.classList.add('over'); };
+        dropZone.ondragleave = function ()  { dropZone.classList.remove('over'); };
+        dropZone.ondrop      = function (e) {
+          e.preventDefault();
+          dropZone.classList.remove('over');
+          if (!dragItem || dragItem.col === col) return;
+          moveKanbanCard(dragItem.col, col, dragItem.id);
+        };
+      });
+      $('kanban-count').textContent = total;
+    }
+
+    function getKanban() { return (activeRoom && activeRoom.get('kanban')) || { todo: [], doing: [], done: [] }; }
+
+    function addKanbanCard(col, title) {
+      var board = JSON.parse(JSON.stringify(getKanban()));
+      board[col] = board[col] || [];
+      board[col].push({ id: Date.now(), title: title.trim(), by: activeRoom ? activeRoom.me().name : 'You', at: new Date().toISOString() });
+      if (activeRoom) activeRoom.set('kanban', board);
+      else renderKanban(board);
+    }
+    function deleteKanbanCard(col, id) {
+      var board = JSON.parse(JSON.stringify(getKanban()));
+      board[col] = (board[col] || []).filter(function (c) { return c.id !== id; });
+      if (activeRoom) activeRoom.set('kanban', board);
+      else renderKanban(board);
+    }
+    function moveKanbanCard(fromCol, toCol, id) {
+      var board = JSON.parse(JSON.stringify(getKanban()));
+      var card  = (board[fromCol] || []).find(function (c) { return c.id === id; });
+      if (!card) return;
+      board[fromCol] = board[fromCol].filter(function (c) { return c.id !== id; });
+      board[toCol]   = board[toCol] || [];
+      board[toCol].push(card);
+      if (activeRoom) activeRoom.set('kanban', board);
+      else renderKanban(board);
+    }
+
+    document.querySelectorAll('.kanban-add-form').forEach(function (form) {
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        var col   = form.dataset.col;
+        var input = form.querySelector('input');
+        var text  = input.value.trim();
+        if (!text) return;
+        addKanbanCard(col, text);
+        input.value = '';
+      };
+    });
+
+    // -------------------------------------------------------------------------
+    // TASKS
+    // -------------------------------------------------------------------------
+    function renderTasks(tasks) {
+      var listEl = $('tasks-list');
+      listEl.innerHTML = '';
+      var arr = tasks || [];
+      if (!arr.length) {
+        listEl.innerHTML = '<li style="font-size:0.78rem;color:var(--text-tertiary);text-align:center;padding:10px;">No tasks yet.</li>';
+        return;
+      }
+      arr.forEach(function (t, idx) {
+        var li  = document.createElement('li');
+        li.className = 'task-item-row' + (t.done ? ' completed' : '');
+        var chk = document.createElement('input');
+        chk.type = 'checkbox'; chk.className = 'task-checkbox'; chk.checked = !!t.done;
+        chk.onchange = function () {
+          var curr = (activeRoom.get('tasks') || []).slice();
+          if (curr[idx]) { curr[idx].done = chk.checked; activeRoom.set('tasks', curr); }
+        };
+        var span = document.createElement('span'); span.style.flex = '1'; span.textContent = t.text;
+        var del  = document.createElement('button'); del.className = 'task-delete-btn'; del.innerHTML = '&times;';
+        del.onclick = function () {
+          var curr = (activeRoom.get('tasks') || []).slice(); curr.splice(idx, 1); activeRoom.set('tasks', curr);
+        };
+        li.appendChild(chk); li.appendChild(span); li.appendChild(del);
+        listEl.appendChild(li);
+      });
+    }
+    $('task-add-form').onsubmit = function (e) {
+      e.preventDefault();
+      var input = $('task-input'); var text = input.value.trim();
+      if (!text || !activeRoom) return;
+      var curr = (activeRoom.get('tasks') || []).slice();
+      curr.push({ id: Date.now(), text: text, done: false });
+      activeRoom.set('tasks', curr);
+      input.value = '';
+    };
+
+    // -------------------------------------------------------------------------
+    // VERSION HISTORY REPLAY
+    // -------------------------------------------------------------------------
+    function renderHistoryCount(count) { $('history-count').textContent = count; }
+
+    function renderVersionList(versions) {
+      allVersions = versions || [];
+      var listEl = $('version-items-list');
+      listEl.innerHTML = '';
+      var slider = $('replay-slider');
+      slider.max = Math.max(0, allVersions.length - 1);
+      slider.value = 0;
+      if (!allVersions.length) {
+        listEl.innerHTML = '<div style="color:var(--text-tertiary);font-size:0.85rem;padding:12px;">No saved versions yet. Keep typing to auto-save!</div>';
+        $('replay-preview').textContent = 'No versions recorded yet.';
+        $('btn-restore-version').style.display = 'none';
+        return;
+      }
+      allVersions.forEach(function (v, idx) {
+        var item = document.createElement('li');
+        item.className = 'version-item' + (idx === 0 ? ' selected' : '');
+        item.innerHTML = '<div class="version-item-header"><span>Version #' + v.id + '</span><span style="color:var(--text-tertiary);font-weight:400;font-size:0.72rem;">' + relTime(v.created_at) + '</span></div>' +
+          '<div class="version-item-meta">By ' + esc(v.display_name) + ' · ' + v.char_count + ' chars</div>';
+        item.onclick = function () {
+          document.querySelectorAll('.version-item').forEach(function (c) { c.classList.remove('selected'); });
+          item.classList.add('selected');
+          slider.value = idx;
+          selectVersion(v);
+        };
+        listEl.appendChild(item);
+      });
+      if (allVersions.length) selectVersion(allVersions[0]);
+    }
+
+    function selectVersion(v) {
+      selectedVersion = v;
+      $('replay-version-label').textContent = 'Version #' + v.id + ' by ' + v.display_name;
+      $('replay-version-time').textContent  = new Date(v.created_at).toLocaleString();
+      $('replay-preview').textContent       = v.saved_text;
+      $('btn-restore-version').style.display = 'flex';
+    }
+
+    $('replay-slider').oninput = function () {
+      var idx = parseInt(this.value, 10);
+      if (allVersions[idx]) {
+        selectVersion(allVersions[idx]);
+        document.querySelectorAll('.version-item').forEach(function (item, i) {
+          item.classList.toggle('selected', i === idx);
+        });
+      }
+    };
+    $('btn-replay-prev').onclick = function () {
+      var s = $('replay-slider'); var v = Math.max(0, parseInt(s.value, 10) - 1); s.value = v; s.dispatchEvent(new Event('input'));
+    };
+    $('btn-replay-next').onclick = function () {
+      var s = $('replay-slider'); var v = Math.min(parseInt(s.max, 10), parseInt(s.value, 10) + 1); s.value = v; s.dispatchEvent(new Event('input'));
+    };
+    $('btn-restore-version').onclick = function () {
+      if (!activeRoom || !selectedVersion) return;
+      activeRoom.restoreVersion(selectedVersion.id);
+      showToast('✅ Restored version #' + selectedVersion.id);
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      document.querySelector('[data-tab="workspace"]').classList.add('active');
+      $('panel-workspace').classList.add('active');
+      activeTab = 'workspace';
+    };
+    $('btn-copy-version-text').onclick = function () {
+      if (!selectedVersion) return;
+      navigator.clipboard.writeText(selectedVersion.saved_text).then(function () { showToast('📋 Version text copied!'); });
+    };
+
+    // -------------------------------------------------------------------------
+    // CHAT
+    // -------------------------------------------------------------------------
+    function renderChatHistory(messages) {
+      var container = $('chat-messages');
+      container.innerHTML = '';
+      messages.forEach(function (m) { appendChatMessage(m, true); });
+      scrollChatToBottom();
+    }
+
+    function appendChatMessage(msg, silent) {
+      var container  = $('chat-messages');
+      var isMe       = activeRoom && msg.client_id === activeRoom.me().id;
+      var placeholder = container.querySelector('[style*="Chat history"]');
+      if (placeholder) placeholder.remove();
+
+      var wrap = document.createElement('div');
+      wrap.className = 'chat-msg' + (isMe ? ' mine' : '');
+      wrap.dataset.msgId = msg.id;
+
+      var av = document.createElement('div');
+      av.className = 'chat-avatar';
+      av.style.backgroundColor = msg.color || '#4f46e5';
+      av.textContent = (msg.display_name || 'G').charAt(0).toUpperCase();
+
+      var bubbleWrap = document.createElement('div');
+      bubbleWrap.className = 'chat-bubble-wrap';
+
+      var meta = document.createElement('div');
+      meta.className = 'chat-meta';
+      meta.innerHTML = '<span style="font-weight:700;color:' + (msg.color||'#4f46e5') + '">' + esc(msg.display_name) + '</span><span>' + relTime(msg.created_at) + '</span>';
+
+      var bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+      bubble.innerHTML = '<span class="chat-react-btn">😊 React</span>' + esc(msg.message).replace(/\n/g, '<br>');
+      bubble.querySelector('.chat-react-btn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        openReactPicker(msg.id, e.currentTarget);
+      });
+      bubble.addEventListener('dblclick', function () { startReply(msg); });
+
+      var reactionsEl = document.createElement('div');
+      reactionsEl.className = 'chat-reactions';
+      reactionsEl.dataset.msgId = msg.id;
+      if (msg.reactions && typeof msg.reactions === 'object') {
+        renderReactions(reactionsEl, msg.reactions, msg.id);
       }
 
-      renderState();
-    })();
+      bubbleWrap.appendChild(meta);
+      bubbleWrap.appendChild(bubble);
+      bubbleWrap.appendChild(reactionsEl);
+      wrap.appendChild(av);
+      wrap.appendChild(bubbleWrap);
+      container.appendChild(wrap);
+      if (!silent) scrollChatToBottom();
+    }
+
+    function renderReactions(el, reactions, msgId) {
+      el.innerHTML = '';
+      Object.keys(reactions).forEach(function (emoji) {
+        var users = reactions[emoji] || [];
+        if (!users.length) return;
+        var pill = document.createElement('button');
+        pill.className = 'chat-reaction-pill';
+        pill.textContent = emoji + ' ' + users.length;
+        pill.onclick = function () {
+          if (activeRoom) activeRoom.chatReact(msgId, emoji);
+        };
+        el.appendChild(pill);
+      });
+    }
+
+    function updateChatReaction(msgId, emoji, clientId) {
+      var reactEl = document.querySelector('.chat-reactions[data-msg-id="' + msgId + '"]');
+      if (!reactEl) return;
+      // Re-fetch full reaction state from the message in DOM — simple toggle approach
+      var pill = Array.from(reactEl.querySelectorAll('.chat-reaction-pill')).find(function (p) { return p.textContent.startsWith(emoji); });
+      if (pill) {
+        var count = parseInt(pill.textContent.split(' ')[1] || '1', 10);
+        // Determine if adding or removing (naive — server is source of truth)
+        pill.textContent = emoji + ' ' + (count); // Server will send fresh state on next join
+      } else {
+        var newPill = document.createElement('button');
+        newPill.className = 'chat-reaction-pill';
+        newPill.textContent = emoji + ' 1';
+        newPill.onclick = function () { if (activeRoom) activeRoom.chatReact(msgId, emoji); };
+        reactEl.appendChild(newPill);
+      }
+    }
+
+    function openReactPicker(msgId, anchor) {
+      reactTargetMsgId = msgId;
+      var picker = $('react-picker');
+      var rect   = anchor.getBoundingClientRect();
+      picker.style.top  = (rect.bottom + 8) + 'px';
+      picker.style.left = (rect.left) + 'px';
+      picker.classList.add('open');
+      document.addEventListener('click', closePicker, { once: true });
+    }
+    function closePicker() { $('react-picker').classList.remove('open'); }
+
+    document.querySelectorAll('#react-picker button').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        if (reactTargetMsgId && activeRoom) activeRoom.chatReact(reactTargetMsgId, btn.dataset.emoji);
+        closePicker();
+      };
+    });
+
+    function startReply(msg) {
+      replyToMsg = msg;
+      $('chat-reply-bar').style.display = 'flex';
+      $('chat-reply-preview').textContent = 'Replying to ' + msg.display_name + ': ' + msg.message.slice(0, 50) + (msg.message.length > 50 ? '…' : '');
+      $('chat-textarea').focus();
+    }
+    $('btn-cancel-reply').onclick = function () { replyToMsg = null; $('chat-reply-bar').style.display = 'none'; };
+
+    function sendChatMessage() {
+      var ta   = $('chat-textarea');
+      var text = ta.value.trim();
+      if (!text || !activeRoom) return;
+      activeRoom.sendChat(text, replyToMsg ? replyToMsg.id : null);
+      ta.value = '';
+      replyToMsg = null;
+      $('chat-reply-bar').style.display = 'none';
+    }
+    $('chat-send-btn').onclick = sendChatMessage;
+    $('chat-textarea').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+    });
+    // Emoji quick insert
+    document.querySelectorAll('.emoji-quick-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var ta  = $('chat-textarea');
+        var pos = ta.selectionStart;
+        ta.value = ta.value.slice(0, pos) + btn.dataset.emoji + ta.value.slice(pos);
+        ta.selectionStart = ta.selectionEnd = pos + btn.dataset.emoji.length;
+        ta.focus();
+      };
+    });
+
+    function scrollChatToBottom() {
+      var c = $('chat-messages'); c.scrollTop = c.scrollHeight;
+    }
+
+    // -------------------------------------------------------------------------
+    // FILE BOARD
+    // -------------------------------------------------------------------------
+    var uploadZone = $('file-upload-zone');
+    var fileInput  = $('file-input');
+
+    uploadZone.addEventListener('click', function () { fileInput.click(); });
+    uploadZone.addEventListener('dragover', function (e) { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', function () { uploadZone.classList.remove('drag-over'); });
+    uploadZone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', function () { handleFiles(fileInput.files); });
+
+    function handleFiles(files) {
+      for (var i = 0; i < files.length; i++) {
+        uploadFile(files[i]);
+      }
+    }
+
+    function uploadFile(file) {
+      if (file.size > 2 * 1024 * 1024) { showToast('File too large (max 2 MB): ' + file.name, true); return; }
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var dataUrl = e.target.result;
+        if (!activeRoom) { showToast('Not connected to room', true); return; }
+        // Animate progress bar
+        var prog = $('upload-progress');
+        prog.style.width = '60%';
+        activeRoom.uploadFile({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          dataUrl:  dataUrl,
+          caption:  '',
+        });
+        setTimeout(function () { prog.style.width = '100%'; setTimeout(function () { prog.style.width = '0%'; }, 400); }, 500);
+        showToast('📤 Uploading ' + file.name + '…');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function appendFileMeta(file) {
+      var grid = $('file-grid');
+      var placeholder = grid.querySelector('[style*="No files"]');
+      if (placeholder) placeholder.remove();
+
+      var card = document.createElement('div');
+      card.className = 'file-card';
+      card.dataset.fileId = file.id;
+
+      var thumb = document.createElement('div');
+      thumb.className = 'file-card-thumb';
+
+      if (file.file_type && file.file_type.startsWith('image/')) {
+        // Fetch full file data via REST API to show thumbnail
+        var img = document.createElement('img');
+        var host = location.protocol + '//' + (location.host || 'localhost:3000');
+        img.src = host + '/api/room/' + encodeURIComponent(file.room_code) + '/files/' + file.id;
+        img.alt = file.file_name;
+        img.onerror = function () { thumb.innerHTML = '<span class="file-icon">🖼️</span>'; };
+        thumb.appendChild(img);
+      } else {
+        var icon = document.createElement('div');
+        icon.className = 'file-icon';
+        icon.textContent = file.file_type && file.file_type.includes('pdf') ? '📄' : '📁';
+        thumb.appendChild(icon);
+      }
+
+      var body = document.createElement('div');
+      body.className = 'file-card-body';
+      body.innerHTML = '<div class="file-card-name" title="' + esc(file.file_name) + '">' + esc(file.file_name) + '</div>' +
+        '<div class="file-card-meta">By ' + esc(file.display_name) + ' · ' + formatSize(file.file_size) + ' · ' + relTime(file.created_at) + '</div>';
+
+      card.appendChild(thumb);
+      card.appendChild(body);
+      grid.insertBefore(card, grid.firstChild);
+      $('files-count').textContent = grid.querySelectorAll('.file-card').length;
+    }
+
+    function renderFileMetas(files) {
+      files.forEach(function (f) { appendFileMeta(f); });
+    }
+
+    function formatSize(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+      return (bytes/1024/1024).toFixed(1) + ' MB';
+    }
+
+    // -------------------------------------------------------------------------
+    // REACTIONS & SHOUTS
+    // -------------------------------------------------------------------------
+    document.querySelectorAll('.reaction-trigger-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var em = btn.dataset.emoji;
+        if (activeRoom) { activeRoom.sendReaction(em); spawnEmojiBurst(em); }
+      };
+    });
+
+    function spawnEmojiBurst(emoji) {
+      var el = document.createElement('div');
+      el.className = 'floating-emoji';
+      el.textContent = emoji;
+      el.style.left  = (Math.random() * 60 + 20) + 'vw';
+      el.style.bottom = '100px';
+      el.style.setProperty('--drift', (Math.random() - 0.5).toString());
+      document.body.appendChild(el);
+      setTimeout(function () { el.remove(); }, 2200);
+    }
+
+    $('shout-form').onsubmit = function (e) {
+      e.preventDefault();
+      var input = $('shout-input'); var text = input.value.trim();
+      if (!text || !activeRoom) return;
+      activeRoom.quickShout(text);
+      input.value = '';
+    };
+
+    function appendShout(shout) {
+      var container = $('shout-stream');
+      var placeholder = container.querySelector('[style*="No shouts"]');
+      if (placeholder) placeholder.remove();
+      var bubble = document.createElement('div');
+      bubble.className = 'shout-message-bubble';
+      bubble.innerHTML = '<span class="shout-sender" style="color:' + (shout.color || 'var(--primary)') + '">' + esc(shout.from) + ':</span>' + esc(shout.message);
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // -------------------------------------------------------------------------
+    // ADMIN DASHBOARD
+    // -------------------------------------------------------------------------
+    function loadAdminStats() {
+      if (!activeRoom) return;
+      var roomCode = $('nav-room-code').textContent;
+      var host = location.protocol + '//' + (location.host || 'localhost:3000');
+      fetch(host + '/api/room/' + encodeURIComponent(roomCode) + '/admin')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok) return;
+          var s = data.stats;
+          $('admin-stat-users').textContent   = (s.users || []).length;
+          $('admin-stat-chat').textContent     = s.chatTotal || 0;
+          $('admin-stat-versions').textContent = s.padVersions || 0;
+          $('admin-stat-actions').textContent  = s.counterActions || 0;
+          $('admin-stat-files').textContent    = s.files || 0;
+          renderAdminUsers(s.users || []);
+        })
+        .catch(function (err) { showToast('Admin load failed: ' + err.message, true); });
+    }
+
+    function renderAdminUsers(users) {
+      var tbody = $('admin-users-body');
+      tbody.innerHTML = '';
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:16px;">No session data yet.</td></tr>';
+        return;
+      }
+      users.forEach(function (u) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td><strong>' + esc(u.display_name || u.displayName) + '</strong></td>' +
+          '<td style="font-family:monospace;color:var(--text-tertiary);font-size:0.78rem;">' + esc((u.client_id || u.clientId || '').slice(0, 12)) + '…</td>' +
+          '<td style="font-weight:700;">' + (u.actions_count || u.actionsCount || 0) + '</td>' +
+          '<td>' + (u.char_count || u.charCount || 0).toLocaleString() + '</td>' +
+          '<td style="font-size:0.78rem;color:var(--text-tertiary);">' + relTime(u.joined_at || u.joinedAt) + '</td>' +
+          '<td style="font-size:0.78rem;color:var(--text-tertiary);">' + relTime(u.last_seen || u.lastSeen) + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    $('btn-admin-refresh').onclick = loadAdminStats;
+
+    // -------------------------------------------------------------------------
+    // NAV CONTROLS
+    // -------------------------------------------------------------------------
+    $('btn-copy-room').onclick = function () {
+      navigator.clipboard.writeText(location.href).then(function () {
+        $('copy-btn-label').textContent = 'Copied! ✓';
+        showToast('🔗 Room link copied to clipboard!');
+        setTimeout(function () { $('copy-btn-label').textContent = 'Copy link'; }, 2000);
+      });
+    };
+    $('btn-switch-room').onclick = function () {
+      if (activeRoom) activeRoom.close();
+      document.body.classList.remove('in-room');
+    };
+    $('btn-rename').onclick = function () {
+      var current = $('nav-user-name').textContent;
+      var updated = prompt('New display name:', current);
+      if (updated && updated.trim()) {
+        var name = updated.trim().slice(0, 28);
+        localStorage.setItem('synapse_display_name', name);
+        if (activeRoom) { activeRoom.close(); enterWorkspace($('nav-room-code').textContent, name); }
+      }
+    };
+    $('btn-test-disconnect').onclick = function () {
+      if (activeRoom) { showToast('⚡ Simulating disconnect… testing reconnect!'); activeRoom.simulateDisconnect(); }
+    };
+
+    // -------------------------------------------------------------------------
+    // UTILITIES
+    // -------------------------------------------------------------------------
+    function showToast(msg, isErr) {
+      var deck  = $('toast-deck');
+      var toast = document.createElement('div');
+      toast.className = 'toast-pill' + (isErr ? ' err' : '');
+      toast.textContent = msg;
+      deck.appendChild(toast);
+      setTimeout(function () {
+        toast.style.transition = 'opacity 0.25s, transform 0.25s';
+        toast.style.opacity = '0'; toast.style.transform = 'translateY(10px)';
+        setTimeout(function () { toast.remove(); }, 250);
+      }, 3500);
+    }
+
+    function relTime(dateStr) {
+      if (!dateStr) return '';
+      var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+      if (diff < 5)    return 'Just now';
+      if (diff < 60)   return diff + 's ago';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    }
+    function esc(str) { return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  })();
   </script>
 </body>
 </html>
