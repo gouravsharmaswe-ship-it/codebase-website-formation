@@ -1,0 +1,550 @@
+/* ==========================================================================
+   PERSONAL PROFILE CARD — EDITORIAL DESIGN SYSTEM
+   - System font typography (zero external font dependencies)
+   - Atmospheric ink/charcoal dark theme with cool-toned accents
+   - Luminous architectural light theme
+   - Smooth pointer-responsive ambient glow
+   - Coarse-pointer / touch device fallback glow
+   - Accessible motion reduction support
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design Tokens (Dark Theme Default)
+   -------------------------------------------------------------------------- */
+:root {
+  /* Surfaces & Backgrounds */
+  --bg-page: #0b0d12;
+  --bg-card: #131720;
+  --bg-card-subtle: rgba(255, 255, 255, 0.03);
+  --bg-toggle: #171c26;
+  --bg-tag: rgba(142, 172, 222, 0.08);
+
+  /* Borders & Dividers */
+  --border-card: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-hover: rgba(162, 192, 245, 0.28);
+  --border-focus: #7ea6e0;
+
+  /* Typography */
+  --text-primary: #f0f4fc;
+  --text-secondary: #9aa7bc;
+  --text-muted: #5e6c82;
+  --text-accent: #8eb2eb;
+
+  /* Accents & Buttons */
+  --btn-bg: #1c2331;
+  --btn-bg-hover: #263043;
+  --btn-text: #f0f4fc;
+  --btn-border: rgba(142, 178, 235, 0.22);
+  --btn-border-hover: rgba(142, 178, 235, 0.45);
+
+  --social-bg: #171c26;
+  --social-hover-bg: #222a3a;
+  --social-text: #9aa7bc;
+  --social-hover-text: #f0f4fc;
+
+  /* Status Pill */
+  --status-dot: #34d399;
+  --status-dot-glow: rgba(52, 211, 153, 0.4);
+
+  /* Pointer Glow Tokens */
+  --glow-x: 50%;
+  --glow-y: 50%;
+  --glow-color: rgba(94, 134, 206, 0.16);
+  --glow-spread: 280px;
+
+  /* Elevation & Shadows */
+  --shadow-card: 
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 24px -4px rgba(0, 0, 0, 0.5),
+    0 24px 48px -12px rgba(0, 0, 0, 0.65);
+
+  /* Geometry & Spacing */
+  --radius-card: 20px;
+  --radius-avatar: 16px;
+  --radius-pill: 9999px;
+  --radius-btn: 12px;
+
+  /* System Font Stack */
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+
+  /* Transitions */
+  --transition-fast: 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-theme: 350ms ease;
+}
+
+/* --------------------------------------------------------------------------
+   2. Light Theme Overrides
+   -------------------------------------------------------------------------- */
+[data-theme="light"] {
+  --bg-page: #f4f6fa;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f8fafc;
+  --bg-toggle: #e9eef5;
+  --bg-tag: rgba(37, 99, 235, 0.06);
+
+  --border-card: rgba(15, 23, 42, 0.08);
+  --border-subtle: rgba(15, 23, 42, 0.05);
+  --border-hover: rgba(37, 99, 235, 0.28);
+  --border-focus: #2563eb;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-accent: #2563eb;
+
+  --btn-bg: #0f172a;
+  --btn-bg-hover: #1e293b;
+  --btn-text: #ffffff;
+  --btn-border: transparent;
+  --btn-border-hover: transparent;
+
+  --social-bg: #f1f5f9;
+  --social-hover-bg: #e2e8f0;
+  --social-text: #475569;
+  --social-hover-text: #0f172a;
+
+  --status-dot: #10b981;
+  --status-dot-glow: rgba(16, 185, 129, 0.3);
+
+  --glow-color: rgba(37, 99, 235, 0.08);
+  --glow-spread: 320px;
+
+  --shadow-card: 
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    0 10px 30px -6px rgba(15, 23, 42, 0.08),
+    0 24px 48px -12px rgba(15, 23, 42, 0.06);
+}
+
+/* --------------------------------------------------------------------------
+   3. Reset & Base Styles
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+  font-family: var(--font-stack);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--transition-theme), color var(--transition-theme);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.25rem 2.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   4. Header & Theme Toggle
+   -------------------------------------------------------------------------- */
+.page-header {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.25rem;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  background-color: var(--bg-toggle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-family: var(--font-stack);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.theme-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--border-card);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.theme-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Toggle icon display based on active theme */
+[data-theme="dark"] .icon-moon {
+  display: none;
+}
+
+[data-theme="light"] .icon-sun {
+  display: none;
+}
+
+.theme-label {
+  user-select: none;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------------------------
+   5. Main Stage & Ambient Glow System
+   -------------------------------------------------------------------------- */
+.card-stage {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+}
+
+.card-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Soft ambient glow positioned behind the card */
+.card-glow {
+  position: absolute;
+  inset: -20px;
+  border-radius: calc(var(--radius-card) + 16px);
+  background: radial-gradient(
+    var(--glow-spread) circle at var(--glow-x) var(--glow-y),
+    var(--glow-color) 0%,
+    transparent 70%
+  );
+  filter: blur(28px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity var(--transition-normal);
+}
+
+/* Restrained static ambient glow on touch / coarse-pointer devices */
+@media (hover: none) and (pointer: coarse) {
+  .card-glow {
+    background: radial-gradient(
+      circle at 50% 40%,
+      var(--glow-color) 0%,
+      transparent 75%
+    );
+    opacity: 0.9;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Profile Card Container
+   -------------------------------------------------------------------------- */
+.profile-card {
+  position: relative;
+  z-index: 1;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 2rem;
+  transition: 
+    background-color var(--transition-theme),
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.profile-card:hover {
+  border-color: var(--border-hover);
+}
+
+/* --------------------------------------------------------------------------
+   7. Card Header: Avatar & Status
+   -------------------------------------------------------------------------- */
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.avatar-frame {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-avatar);
+  overflow: hidden;
+  background-color: var(--bg-toggle);
+  border: 1px solid var(--border-card);
+  flex-shrink: 0;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: calc(var(--radius-avatar) - 1px);
+}
+
+.avatar-image.is-hidden {
+  display: none;
+}
+
+/* Graceful Fallback Monogram */
+.avatar-fallback {
+  display: none;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-accent);
+  background: linear-gradient(145deg, var(--bg-card), var(--bg-toggle));
+  user-select: none;
+}
+
+.avatar-fallback.is-visible {
+  display: flex;
+}
+
+/* Status Indicator */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background-color: var(--status-dot);
+  box-shadow: 0 0 6px var(--status-dot-glow);
+}
+
+.status-text {
+  letter-spacing: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   8. Card Body: Identity, Headline, Interests, Location
+   -------------------------------------------------------------------------- */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  margin-bottom: 1.85rem;
+}
+
+.profile-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.profile-headline {
+  font-size: 0.93rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Focus / Interests section */
+.profile-interests {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem;
+  background-color: var(--bg-tag);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.interest-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-accent);
+}
+
+.interest-text {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Location metadata */
+.profile-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.meta-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.location-name {
+  letter-spacing: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   9. Card Footer: Primary CTA & Social Navigation
+   -------------------------------------------------------------------------- */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Primary Button */
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.05rem;
+  background-color: var(--btn-bg);
+  color: var(--btn-text);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius-btn);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.primary-btn:hover {
+  background-color: var(--btn-bg-hover);
+  border-color: var(--btn-border-hover);
+  transform: translateY(-1px);
+}
+
+.primary-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.btn-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--transition-fast);
+}
+
+.primary-btn:hover .btn-arrow {
+  transform: translateX(2px);
+}
+
+/* Social Icon Links */
+.social-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--social-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--social-text);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.social-link:hover {
+  background-color: var(--social-hover-bg);
+  color: var(--social-hover-text);
+  border-color: var(--border-card);
+  transform: translateY(-1px);
+}
+
+.social-link:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.social-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   10. Mobile Responsiveness & Accessibility (Reduced Motion)
+   -------------------------------------------------------------------------- */
+@media (max-width: 400px) {
+  body {
+    padding: 1rem 0.85rem 1.75rem;
+  }
+
+  .profile-card {
+    padding: 1.5rem;
+  }
+
+  .card-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primary-btn {
+    justify-content: center;
+  }
+
+  .social-nav {
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+}
+
+/* Motion reduction compliance */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .card-glow {
+    transition: none !important;
+  }
+}

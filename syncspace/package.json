@@ -1,0 +1,23 @@
+{
+  "name": "syncspace",
+  "version": "1.0.0",
+  "description": "Multiplayer in 10 lines: Real-time shared state, live cursors, and presence library",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node test/test.js"
+  },
+  "keywords": [
+    "multiplayer",
+    "websockets",
+    "real-time",
+    "presence",
+    "live-cursors",
+    "sync"
+  ],
+  "author": "SyncSpace Team",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

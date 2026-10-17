@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LaunchPad – Hackathon Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f4f9;--card:#fff;--ink:#121a2e;--mute:#667089;--line:#e3e7f0;--brand:#2f4bff;--brand-soft:#e8ecff;--ok:#0f9d6e;--warn:#d98a0b;--hi:#d6405a;--shadow:0 1px 2px rgba(18,26,46,.05),0 6px 20px -10px rgba(18,26,46,.18);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1220;--card:#161d30;--ink:#eef1fa;--mute:#98a3bf;--line:#26304a;--brand:#7c90ff;--brand-soft:#222c52;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}}
+:root[data-theme="dark"]{--bg:#0d1220;--card:#161d30;--ink:#eef1fa;--mute:#98a3bf;--line:#26304a;--brand:#7c90ff;--brand-soft:#222c52;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3{font-family:"Bricolage Grotesque","DM Sans",system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+aside{background:var(--card);border-right:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px}
+.logo{display:flex;align-items:center;gap:10px;font:700 19px "Bricolage Grotesque",sans-serif;letter-spacing:-.02em}
+.logo i{width:30px;height:30px;border-radius:9px;background:var(--brand);display:grid;place-items:center;color:#fff;font-style:normal;font-size:16px}
+aside .logo{padding:4px 10px 18px}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button{display:flex;gap:12px;align-items:center;border:0;background:none;padding:10px 12px;border-radius:10px;color:var(--mute);font-weight:500;text-align:left}
+.nav button:hover{background:var(--bg)}
+.nav button.on{background:var(--brand-soft);color:var(--brand)}
+.nav svg{width:18px;height:18px;flex:none}
+.tip{margin-top:auto;background:var(--bg);border-radius:12px;padding:14px;font-size:13px;color:var(--mute)}
+.tip b{color:var(--ink);display:block;margin-bottom:2px}
+.col{min-width:0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:14px;padding:12px 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header .logo{display:none}
+.search{flex:1;max-width:460px;position:relative}
+.search input{width:100%;padding:10px 14px 10px 38px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.search svg{position:absolute;left:12px;top:11px;width:18px;height:18px;color:var(--mute)}
+.sp{flex:1}
+.icon{position:relative;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
+.icon svg{width:19px;height:19px}
+.badge{position:absolute;top:-5px;right:-5px;background:var(--hi);color:#fff;font-size:11px;font-weight:600;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 4px}
+.av{width:30px;height:30px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font-size:12px;font-weight:600;border:2px solid var(--card);flex:none}
+.me{border:0;background:none;padding:0}.me .av{width:40px;height:40px;font-size:14px;border:0}
+.pop{position:absolute;right:28px;top:62px;width:min(340px,calc(100vw - 24px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px;display:none}
+.pop.open{display:block}
+main{padding:28px;max-width:1240px}
+.hello{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.hello h1{font-size:30px;line-height:1.15}
+.hello p{margin:6px 0 0;color:var(--mute)}
+.btn{border:0;background:var(--brand);color:#fff;padding:11px 18px;border-radius:12px;font-weight:600;box-shadow:0 6px 16px -8px var(--brand)}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:var(--bg);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+.stat b{font:700 28px "Bricolage Grotesque",sans-serif;display:block}
+.stat span{color:var(--mute);font-size:13px}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px}
+.sec h2{font-size:19px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:28px}
+.card{background:var(--card);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.proj{display:flex;flex-direction:column;gap:12px}
+.proj h3{font-size:17px}
+.proj p{margin:4px 0 0;color:var(--mute);font-size:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.s-Planning{background:#eef0f6;color:#59627a}.s-Building{background:var(--brand-soft);color:var(--brand)}.s-Testing{background:#fff3dc;color:#a5680a}.s-Shipped{background:#dff5ec;color:#0b7a55}
+.bar{height:8px;border-radius:99px;background:var(--bg);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .4s}
+.team{display:flex}.team .av+.av{margin-left:-8px}
+.muted{color:var(--mute);font-size:13px}
+.two{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
+.addtask{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;margin-bottom:14px}
+input,select,textarea{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);min-width:0}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:none;border-radius:99px;padding:4px 12px;font-size:13px;color:var(--mute)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.task{display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid var(--line)}
+.task input{width:20px;height:20px;accent-color:var(--ok);flex:none}
+.task .t{flex:1;min-width:0}
+.task.done .t b{text-decoration:line-through;color:var(--mute);font-weight:400}
+.t b{font-weight:500;display:block;overflow-wrap:anywhere}
+.p-High{color:var(--hi);background:#fde8ec}.p-Medium{color:var(--warn);background:#fff3dc}.p-Low{color:var(--mute);background:var(--bg)}
+.x{border:0;background:none;color:var(--mute);font-size:18px;line-height:1;padding:4px 8px;border-radius:8px}.x:hover{background:var(--bg);color:var(--hi)}
+.feed{display:flex;flex-direction:column;gap:14px}
+.ev{display:flex;gap:10px;font-size:14px}
+.ev p{margin:0}
+.empty{text-align:center;color:var(--mute);padding:26px 10px}
+.modal{position:fixed;inset:0;background:rgba(10,14,28,.5);display:none;place-items:center;z-index:50;padding:16px}
+.modal.open{display:grid}
+.modal form{background:var(--card);border-radius:20px;padding:24px;width:min(480px,100%);max-height:92vh;overflow:auto;box-shadow:0 30px 60px -20px rgba(0,0,0,.5);animation:pop .18s ease-out}
+@keyframes pop{from{transform:translateY(10px);opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+label{display:block;font-weight:500;font-size:13px;margin:14px 0 5px}
+.modal input,.modal select,.modal textarea{width:100%}
+.members{display:flex;gap:8px;flex-wrap:wrap}
+.members label{display:flex;align-items:center;gap:6px;margin:0;border:1px solid var(--line);border-radius:99px;padding:4px 10px 4px 6px;font-weight:400}
+.members input{width:auto;accent-color:var(--brand)}
+.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+.toast.show{opacity:1}
+.set{max-width:520px}
+.seg{display:flex;gap:6px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+@media (max-width:760px){
+.app{grid-template-columns:1fr}
+aside{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));z-index:30;border-right:0;border-top:1px solid var(--line)}
+aside .logo,.tip{display:none}
+.nav{flex-direction:row;width:100%;justify-content:space-around}
+.nav button{flex-direction:column;gap:2px;font-size:11px;padding:6px 10px}
+header{padding:10px 14px}header .logo{display:flex}header .logo span{display:none}
+main{padding:18px 14px 100px}
+.hello h1{font-size:25px}
+.addtask{grid-template-columns:1fr 1fr}.addtask input{grid-column:1/-1}
+.pop{right:12px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+ <div class="logo"><i>🚀</i>LaunchPad</div>
+ <nav class="nav" id="nav"></nav>
+ <div class="tip"><b>Demo build</b>Data is saved in this browser only.</div>
+</aside>
+<div class="col">
+ <header>
+  <div class="logo"><i>🚀</i><span>LaunchPad</span></div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search projects, tasks, people" aria-label="Search"></div>
+  <div class="sp"></div>
+  <button class="icon" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg><span class="badge" id="badge"></span></button>
+  <button class="me" id="me" aria-label="Open settings"></button>
+ </header>
+ <div class="pop" id="pop"></div>
+ <main id="main"></main>
+</div>
+</div>
+
+<div class="modal" id="modal">
+ <form id="pform">
+  <h2>Create project</h2>
+  <label for="pn">Project name</label><input id="pn" required maxlength="40" placeholder="e.g. Campus Buddy">
+  <label for="pd">Short description</label><textarea id="pd" rows="2" maxlength="120" placeholder="What are you building?"></textarea>
+  <div class="row" style="gap:12px;align-items:flex-start">
+   <div style="flex:1"><label for="ps">Status</label><select id="ps"><option>Planning</option><option>Building</option><option>Testing</option><option>Shipped</option></select></div>
+   <div style="flex:1"><label for="pdue">Due date</label><input id="pdue" type="date" required></div>
+  </div>
+  <label>Team</label><div class="members" id="pteam"></div>
+  <div class="acts"><button type="button" class="btn ghost" data-a="close">Cancel</button><button class="btn">Create project</button></div>
+ </form>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+var KEY="launchpad.v1",$=function(s){return document.querySelector(s)};
+var team=[{id:"m1",name:"Alex Rivera",role:"Product lead",c:"#2f4bff"},{id:"m2",name:"Priya Nair",role:"Frontend",c:"#0f9d6e"},{id:"m3",name:"Jonas Weber",role:"Backend",c:"#d6405a"},{id:"m4",name:"Mei Tanaka",role:"Design",c:"#b8741a"},{id:"m5",name:"Sam Okafor",role:"ML engineer",c:"#7a46d6"}];
+var icons={Dashboard:'<path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/>',Projects:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',Team:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5"/>',Settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'};
+var view="Dashboard",filter="all",S=load(),unread=0;
+
+function day(n){var d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
+function seed(){return{user:"Alex Rivera",theme:"auto",unread:3,
+projects:[
+{id:"p1",name:"Pitch Pilot",desc:"AI coach that turns a rough idea into a 3-minute demo script.",status:"Building",due:day(2),team:["m1","m2","m5"]},
+{id:"p2",name:"CampusPulse",desc:"Live map of free study rooms, built from timetable data.",status:"Testing",due:day(5),team:["m2","m3","m4"]},
+{id:"p3",name:"GreenLedger",desc:"Track a team’s carbon footprint during travel to events.",status:"Planning",due:day(11),team:["m1","m4"]},
+{id:"p4",name:"SignSpeak",desc:"Browser-based sign-language practice with webcam feedback.",status:"Shipped",due:day(-3),team:["m3","m5","m1","m2"]}],
+tasks:[
+{id:"t1",text:"Draft the demo script outline",who:"m1",pri:"High",done:false,proj:"p1"},
+{id:"t2",text:"Connect the LLM prompt chain",who:"m5",pri:"High",done:false,proj:"p1"},
+{id:"t3",text:"Design the landing page hero",who:"m4",pri:"Medium",done:true,proj:"p1"},
+{id:"t4",text:"Fix timetable import for Fridays",who:"m3",pri:"High",done:false,proj:"p2"},
+{id:"t5",text:"Write usability test questions",who:"m4",pri:"Medium",done:true,proj:"p2"},
+{id:"t6",text:"Deploy staging build",who:"m2",pri:"Low",done:true,proj:"p2"},
+{id:"t7",text:"Choose an emissions data source",who:"m1",pri:"Medium",done:false,proj:"p3"},
+{id:"t8",text:"Record the final demo video",who:"m2",pri:"Low",done:true,proj:"p4"},
+{id:"t9",text:"Submit to the judging portal",who:"m1",pri:"High",done:true,proj:"p4"}],
+activity:[
+{who:"m2",text:"finished “Deploy staging build”",t:Date.now()-18*6e4},
+{who:"m5",text:"commented on Pitch Pilot",t:Date.now()-52*6e4},
+{who:"m4",text:"completed “Write usability test questions”",t:Date.now()-3*36e5},
+{who:"m3",text:"moved CampusPulse to Testing",t:Date.now()-26*36e5},
+{who:"m1",text:"created GreenLedger",t:Date.now()-50*36e5}]}}
+function load(){try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o&&o.projects)return o}}catch(e){}return seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function m(id){return team.filter(function(x){return x.id==id})[0]||team[0]}
+function ini(n){return n.split(" ").map(function(w){return w[0]}).join("").slice(0,2).toUpperCase()}
+function av(id){var t=m(id);return '<span class="av" style="background:'+t.c+'" title="'+esc(t.name)+'">'+ini(t.name)+'</span>'}
+function ago(t){var s=(Date.now()-t)/6e4;if(s<1)return"just now";if(s<60)return Math.round(s)+" min ago";if(s<1440)return Math.round(s/60)+" h ago";return Math.round(s/1440)+" d ago"}
+function due(d){var n=Math.round((new Date(d+"T00:00:00")-new Date().setHours(0,0,0,0))/864e5);var l=new Date(d+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"});return n<0?"Was due "+l:n==0?"Due today":n==1?"Due tomorrow":"Due "+l}
+function prog(p){var t=S.tasks.filter(function(x){return x.proj==p.id});return t.length?Math.round(t.filter(function(x){return x.done}).length/t.length*100):0}
+function log(who,text){S.activity.unshift({who:who,text:text,t:Date.now()});S.activity=S.activity.slice(0,30);S.unread=Math.min(9,(S.unread||0)+1)}
+function toast(t){var e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(function(){e.classList.remove("show")},2000)}
+function me(){return team.filter(function(x){return x.name==S.user})[0]||team[0]}
+function theme(){var r=document.documentElement;if(S.theme=="auto")r.removeAttribute("data-theme");else r.setAttribute("data-theme",S.theme)}
+
+function projCard(p){var pr=prog(p);return '<article class="card proj"><div class="row"><h3>'+esc(p.name)+'</h3><span class="pill s-'+p.status+'">'+p.status+'</span></div><p>'+esc(p.desc||"No description yet.")+'</p><div><div class="row muted" style="margin-bottom:6px"><span>Progress</span><b style="color:var(--ink)">'+pr+'%</b></div><div class="bar"><i style="width:'+pr+'%"></i></div></div><div class="row"><div class="team">'+p.team.map(av).join("")+'</div><span class="muted">'+due(p.due)+'</span></div></article>'}
+function match(s){var q=$("#q").value.trim().toLowerCase();return !q||s.toLowerCase().indexOf(q)>-1}
+function taskRow(t){var p=S.projects.filter(function(x){return x.id==t.proj})[0];return '<div class="task'+(t.done?" done":"")+'">'+'<input type="checkbox" data-a="tog" data-id="'+t.id+'" '+(t.done?"checked":"")+' aria-label="Mark complete"><div class="t"><b>'+esc(t.text)+'</b><span class="muted">'+(p?esc(p.name):"No project")+'</span></div>'+av(t.who)+'<span class="pill p-'+t.pri+'">'+t.pri+'</span><button class="x" data-a="del" data-id="'+t.id+'" aria-label="Delete task">×</button></div>'}
+function tasksCard(){
+ var list=S.tasks.filter(function(t){var p=S.projects.filter(function(x){return x.id==t.proj})[0];return match(t.text+" "+m(t.who).name+" "+(p?p.name:""))&&(filter=="all"||(filter=="open")==!t.done)});
+ return '<section class="card"><div class="sec"><h2>Tasks</h2><span class="muted">'+S.tasks.filter(function(t){return!t.done}).length+' open</span></div>'+
+ '<form class="addtask" id="tform"><input id="tt" required maxlength="80" placeholder="Add a task" aria-label="Task"><select id="tw" aria-label="Assign to">'+team.map(function(x){return'<option value="'+x.id+'">'+esc(x.name.split(" ")[0])+'</option>'}).join("")+'</select><select id="tp" aria-label="Priority"><option>High</option><option selected>Medium</option><option>Low</option></select><select id="tj" aria-label="Project">'+S.projects.map(function(p){return'<option value="'+p.id+'">'+esc(p.name)+'</option>'}).join("")+'</select><button class="btn" style="grid-column:1/-1">Add task</button></form>'+
+ '<div class="chips">'+["all","open","done"].map(function(f){return'<button class="chip'+(filter==f?" on":"")+'" data-a="flt" data-f="'+f+'">'+{all:"All",open:"To do",done:"Done"}[f]+'</button>'}).join("")+'</div>'+
+ (list.length?list.map(taskRow).join(""):'<div class="empty">No tasks match. Add one above.</div>')+'</section>'}
+function feedCard(){return '<section class="card"><div class="sec"><h2>Activity</h2></div><div class="feed">'+S.activity.slice(0,7).map(function(a){return'<div class="ev">'+av(a.who)+'<div><p><b>'+esc(m(a.who).name.split(" ")[0])+'</b> '+esc(a.text)+'</p><span class="muted">'+ago(a.t)+'</span></div></div>'}).join("")+'</div></section>'}
+
+function render(){
+ var h="",ps=S.projects.filter(function(p){return match(p.name+" "+p.desc+" "+p.status)});
+ var open=S.tasks.filter(function(t){return!t.done}).length;
+ if(view=="Dashboard"){
+  h+='<div class="hello"><div><h1>Welcome back, '+esc(S.user.split(" ")[0])+'</h1><p>'+S.projects.filter(function(p){return p.status!="Shipped"}).length+' projects in flight and '+open+' tasks to finish before demo day.</p></div><button class="btn" data-a="new">Create project</button></div>';
+  h+='<div class="stats"><div class="stat"><b>'+S.projects.length+'</b><span>Projects</span></div><div class="stat"><b>'+open+'</b><span>Open tasks</span></div><div class="stat"><b>'+(S.tasks.length-open)+'</b><span>Completed</span></div><div class="stat"><b>'+team.length+'</b><span>Teammates</span></div></div>';
+  h+='<div class="sec"><h2>Your projects</h2></div><div class="grid">'+(ps.length?ps.map(projCard).join(""):'<div class="card empty" style="grid-column:1/-1">No projects match your search.</div>')+'</div>';
+  h+='<div class="two">'+tasksCard()+feedCard()+'</div>'}
+ else if(view=="Projects"){
+  h+='<div class="hello"><div><h1>Projects</h1><p>'+ps.length+' of '+S.projects.length+' shown</p></div><button class="btn" data-a="new">Create project</button></div><div class="grid">'+(ps.length?ps.map(projCard).join(""):'<div class="card empty" style="grid-column:1/-1">No projects match your search.</div>')+'</div>'}
+ else if(view=="Team"){
+  var tm=team.filter(function(x){return match(x.name+" "+x.role)});
+  h+='<div class="hello"><div><h1>Team</h1><p>Who is working on what</p></div></div><div class="grid">'+tm.map(function(x){var o=S.tasks.filter(function(t){return t.who==x.id&&!t.done}).length;return'<div class="card row"><div class="row" style="gap:12px">'+av(x.id).replace('class="av"','class="av" style="width:44px;height:44px;font-size:15px;"').replace('style="background','data-x="1" style="background')+'<div><b>'+esc(x.name)+'</b><div class="muted">'+x.role+'</div></div></div><span class="pill s-Building">'+o+' open</span></div>'}).join("")+'</div>'}
+ else{
+  h+='<div class="hello"><div><h1>Settings</h1><p>Personalize this workspace</p></div></div><div class="card set"><label for="su" style="margin-top:0">Signed in as</label><select id="su" data-a="user">'+team.map(function(x){return'<option'+(x.name==S.user?" selected":"")+'>'+x.name+'</option>'}).join("")+'</select><label>Theme</label><div class="seg">'+["auto","light","dark"].map(function(t){return'<button class="chip'+(S.theme==t?" on":"")+'" data-a="theme" data-t="'+t+'">'+t[0].toUpperCase()+t.slice(1)+'</button>'}).join("")+'</div><label>Demo data</label><button class="btn ghost" data-a="reset">Reset to example data</button></div>'}
+ $("#main").innerHTML=h;
+ $("#nav").innerHTML=Object.keys(icons).map(function(k){return'<button data-a="nav" data-v="'+k+'" class="'+(view==k?"on":"")+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+icons[k]+'</svg>'+k+'</button>'}).join("");
+ var u=me();$("#me").innerHTML='<span class="av" style="background:'+u.c+'">'+ini(u.name)+'</span>';
+ var b=$("#badge");b.textContent=S.unread||"";b.style.display=S.unread?"grid":"none";
+ theme()}
+
+document.addEventListener("click",function(e){
+ var el=e.target.closest("[data-a]"),a=el&&el.dataset.a;
+ if(!e.target.closest("#pop")&&!e.target.closest("#bell"))$("#pop").classList.remove("open");
+ if(e.target.id=="modal")closeM();
+ if(!a)return;
+ if(a=="nav"){view=el.dataset.v;render();scrollTo(0,0)}
+ else if(a=="new")openM();
+ else if(a=="close")closeM();
+ else if(a=="flt"){filter=el.dataset.f;render()}
+ else if(a=="del"){S.tasks=S.tasks.filter(function(t){return t.id!=el.dataset.id});save();render();toast("Task deleted")}
+ else if(a=="theme"){S.theme=el.dataset.t;save();render()}
+ else if(a=="reset"){if(confirm("Replace everything with the example data?")){S=seed();save();render();toast("Example data restored")}}
+});
+document.addEventListener("change",function(e){
+ var el=e.target;
+ if(el.dataset.a=="tog"){var t=S.tasks.filter(function(x){return x.id==el.dataset.id})[0];t.done=el.checked;if(t.done)log(me().id,"completed “"+t.text+"”");save();render();if(t.done)toast("Task completed")}
+ if(el.dataset.a=="user"){S.user=el.value;save();render()}
+});
+document.addEventListener("submit",function(e){
+ e.preventDefault();
+ if(e.target.id=="tform"){var tx=$("#tt").value.trim();if(!tx)return;S.tasks.unshift({id:"t"+Date.now(),text:tx,who:$("#tw").value,pri:$("#tp").value,done:false,proj:$("#tj").value});log(me().id,"added “"+tx+"”");save();render();toast("Task added")}
+ if(e.target.id=="pform"){var tm=[].map.call(document.querySelectorAll("#pteam input:checked"),function(i){return i.value});if(!tm.length)tm=[me().id];var n=$("#pn").value.trim();S.projects.unshift({id:"p"+Date.now(),name:n,desc:$("#pd").value.trim(),status:$("#ps").value,due:$("#pdue").value,team:tm});log(me().id,"created "+n);save();closeM();view=view=="Team"||view=="Settings"?"Dashboard":view;render();toast("Project created")}
+});
+$("#q").addEventListener("input",function(){if(view=="Settings")view="Dashboard";render()});
+$("#bell").addEventListener("click",function(){
+ var p=$("#pop");p.innerHTML='<b>Notifications</b><div class="feed" style="margin-top:12px">'+S.activity.slice(0,5).map(function(a){return'<div class="ev">'+av(a.who)+'<div><p><b>'+esc(m(a.who).name.split(" ")[0])+'</b> '+esc(a.text)+'</p><span class="muted">'+ago(a.t)+'</span></div></div>'}).join("")+'</div>';
+ p.classList.toggle("open");S.unread=0;save();var b=$("#badge");b.style.display="none"});
+$("#me").addEventListener("click",function(){view="Settings";render()});
+document.addEventListener("keydown",function(e){if(e.key=="Escape"){closeM();$("#pop").classList.remove("open")}});
+function openM(){$("#pform").reset();$("#pdue").value=day(14);$("#pteam").innerHTML=team.map(function(x){return'<label><input type="checkbox" value="'+x.id+'">'+av(x.id)+esc(x.name.split(" ")[0])+'</label>'}).join("");$("#modal").classList.add("open");setTimeout(function(){$("#pn").focus()},30)}
+function closeM(){$("#modal").classList.remove("open")}
+render();
+</script>
+</body>
+</html>
